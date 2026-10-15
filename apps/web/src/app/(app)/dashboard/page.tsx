@@ -153,7 +153,7 @@ export default function DashboardPage() {
         <div className="card p-5 lg:col-span-2">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-display text-lg font-medium">
-              Sales — last 7 days
+              Weekly sales
               <span className="flex items-center gap-1.5 rounded-full bg-clay/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-clay">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-clay opacity-75" />
