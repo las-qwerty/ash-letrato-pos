@@ -138,7 +138,7 @@ export default function DashboardPage() {
         })}
       />
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Today's sales" value={peso(revenue)} />
         <Stat label="Transactions" value={todaySales.length} hint={`${sales.length} all time`} />
         <Stat label="Customers" value={customers.length} hint="registered members" />
@@ -149,8 +149,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-3">
-        <div className="card p-5 xl:col-span-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="card p-5 lg:col-span-2">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-display text-lg font-medium">
               Sales — last 7 days
@@ -186,32 +186,34 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-3">
-        <div className="card xl:col-span-2">
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="card lg:col-span-2">
           <h2 className="border-b border-stone-100 px-5 py-3.5 font-display text-lg font-medium">
             Recent transactions
           </h2>
-          <table className="w-full">
-            <tbody>
-              {recent.map((s) => (
-                <tr key={s.id} className="border-b border-stone-100 last:border-0">
-                  <td className="td font-medium">{s.invoiceNumber}</td>
-                  <td className="td text-stone-500">{s.customerName ?? 'Walk-in'}</td>
-                  <td className="td text-stone-500">{fmtTime(s.createdAt)}</td>
-                  <td className="td">
-                    <Badge
-                      tone={
-                        s.status === 'completed' ? 'pine' : s.status === 'voided' ? 'clay' : 'brass'
-                      }
-                    >
-                      {s.status}
-                    </Badge>
-                  </td>
-                  <td className="td text-right font-medium tabular-nums">{peso(s.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <tbody>
+                {recent.map((s) => (
+                  <tr key={s.id} className="border-b border-stone-100 last:border-0">
+                    <td className="td font-medium">{s.invoiceNumber}</td>
+                    <td className="td text-stone-500">{s.customerName ?? 'Walk-in'}</td>
+                    <td className="td text-stone-500">{fmtTime(s.createdAt)}</td>
+                    <td className="td">
+                      <Badge
+                        tone={
+                          s.status === 'completed' ? 'pine' : s.status === 'voided' ? 'clay' : 'brass'
+                        }
+                      >
+                        {s.status}
+                      </Badge>
+                    </td>
+                    <td className="td text-right font-medium tabular-nums">{peso(s.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="card p-5">

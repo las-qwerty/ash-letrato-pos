@@ -105,3 +105,12 @@ export const IconBarcode = (p: P) => (
 export const IconDownload = (p: P) => (
   <svg {...base(p)}><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5"/><path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17"/></svg>
 );
+export const IconChevronLeft = (p: P) => (
+  <svg {...base(p)}><path d="m14 6-6 6 6 6"/></svg>
+);
+export const IconChevronRight = (p: P) => (
+  <svg {...base(p)}><path d="m10 6 6 6-6 6"/></svg>
+);
+export const IconMenu = (p: P) => (
+  <svg {...base(p)}><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+);
