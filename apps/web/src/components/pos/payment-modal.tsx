@@ -14,7 +14,7 @@ import {
   type Sale,
 } from '@simmy/core';
 import { useCart } from '@/lib/cart';
-import { useStore } from '@/lib/store';
+import { activeBranchId, useStore } from '@/lib/store';
 import { IconCard, IconCash, IconPhone } from '../icons';
 import { Modal } from '../ui';
 import { Receipt } from './receipt';
@@ -79,9 +79,12 @@ export function PaymentModal({
       return;
     }
     try {
-      const { branches, sales } = useStore.getState();
+      const state = useStore.getState();
+      const { branches, sales } = state;
+      // Staff sell under their home branch; the owner sells under whatever
+      // branch they're currently viewing (or their own when viewing 'all').
       const branch =
-        branches.find((b) => b.id === currentUser?.branchId) ?? branches[0];
+        branches.find((b) => b.id === activeBranchId(state)) ?? branches[0];
       // Next free invoice number — survives restores/resets better than
       // counting rows (which collides after importing a smaller backup).
       const maxSuffix = sales.reduce((m, s) => {

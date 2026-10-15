@@ -7,7 +7,7 @@ import { IconAlert, IconBox, IconDownload, IconSearch } from '@/components/icons
 import { Pagination } from '@/components/pagination';
 import { downloadXlsx } from '@/lib/excel';
 import { usePager } from '@/lib/use-pager';
-import { useStore } from '@/lib/store';
+import { useBranchScope, useStore } from '@/lib/store';
 import clsx from 'clsx';
 
 type Action = { kind: 'restock' | 'adjust'; material: Material } | null;
@@ -47,8 +47,11 @@ export default function InventoryPage() {
   const transferMaterial = useStore((s) => s.transferMaterial);
   const currentUser = useStore((s) => s.currentUser);
 
+  const scope = useBranchScope();
   const [tab, setTab] = useState<Tab>('stock');
-  const [branchId, setBranchId] = useState<'all' | string>('all');
+  const [branchPick, setBranchPick] = useState<'all' | string>('all');
+  // Non-owner roles always work their own branch's stock.
+  const branchId = scope === 'all' ? branchPick : scope;
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'low'>('all');
   const [action, setAction] = useState<Action>(null);
@@ -240,17 +243,23 @@ export default function InventoryPage() {
             onChange={(e) => (tab === 'stock' ? setQ(e.target.value) : setMvQ(e.target.value))}
           />
         </div>
-        <select
-          className="input !w-48"
-          value={branchId}
-          onChange={(e) => setBranchId(e.target.value as 'all' | string)}
-          aria-label="Branch"
-        >
-          <option value="all">All branches</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </select>
+        {scope === 'all' ? (
+          <select
+            className="input !w-48"
+            value={branchId}
+            onChange={(e) => setBranchPick(e.target.value as 'all' | string)}
+            aria-label="Branch"
+          >
+            <option value="all">All branches</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        ) : (
+          <span className="self-center rounded-full bg-pine-50 px-3 py-1.5 text-xs font-medium text-pine-800 ring-1 ring-pine-200">
+            {branches.find((b) => b.id === scope)?.name ?? 'My branch'}
+          </span>
+        )}
         {tab === 'stock' ? (
           <div className="flex gap-1.5">
             {(['all', 'low'] as const).map((f) => (

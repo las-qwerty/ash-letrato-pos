@@ -64,6 +64,10 @@ interface DataState {
   locked: boolean;
   /** Per-user failed-PIN tracking — persisted so refresh can't reset the lockout. */
   pinFailures: Record<string, { count: number; until: number }>;
+  /** Owner's branch view — 'all' shows the whole business. Staff are always
+   *  pinned to their own `branchId`; this is ignored for them. */
+  viewBranchId: 'all' | string;
+  setViewBranch: (id: 'all' | string) => void;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   lock: () => void;
@@ -178,6 +182,8 @@ export const useStore = create<DataState>()(
       currentUser: null,
       locked: false,
       pinFailures: {},
+      viewBranchId: 'all',
+      setViewBranch: (id) => set({ viewBranchId: id }),
       login: async (email, password) => {
         const e = email.trim().toLowerCase();
         if (e === seed.demoCredentials.email && password === seed.demoCredentials.password) {
@@ -987,3 +993,32 @@ export const useStore = create<DataState>()(
     },
   ),
 );
+
+/**
+ * Data-read scope: 'all' when the owner is viewing the whole business, else a
+ * branch id. Staff roles are always pinned to their own branch.
+ */
+export function branchScope(
+  s: Pick<DataState, 'currentUser' | 'viewBranchId'>,
+): 'all' | string {
+  const u = s.currentUser;
+  if (!u) return 'all';
+  return u.role === 'super_admin' ? s.viewBranchId : u.branchId;
+}
+
+/**
+ * Concrete branch a record gets written under — the scope when it's a real
+ * branch, else the signed-in user's home branch (with a first-branch fallback).
+ */
+export function activeBranchId(
+  s: Pick<DataState, 'currentUser' | 'viewBranchId' | 'branches'>,
+): string {
+  const scope = branchScope(s);
+  const scoped = scope === 'all' ? s.currentUser?.branchId : scope;
+  return scoped || s.branches[0]?.id || '';
+}
+
+/** React hook for the read scope — re-renders on user/branch-view changes. */
+export function useBranchScope(): 'all' | string {
+  return useStore((s) => branchScope(s));
+}

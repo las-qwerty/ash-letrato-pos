@@ -4,7 +4,8 @@ import clsx from 'clsx';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useStore } from '@/lib/store';
+import { useBranchScope, useStore } from '@/lib/store';
+import { ROLE_NAV, isGlobalRole } from '@/lib/roles';
 import { initials } from '@simmy/core';
 import {
   IconBox,
@@ -45,13 +46,8 @@ const nav = [
   { href: '/settings', label: 'Settings', icon: IconGear },
 ];
 
-/** Which routes each role may open — cashiers/handlers get the till-facing set. */
-const roleNav: Record<string, string[]> = {
-  super_admin: nav.map((n) => n.href),
-  manager: nav.map((n) => n.href),
-  cashier: ['/pos', '/sales', '/production', '/customers'],
-  handler: ['/pos', '/production'],
-};
+/** Which routes each role may open — the same matrix the layout guard enforces. */
+const roleNav = ROLE_NAV as Record<string, string[]>;
 
 const COLLAPSED_KEY = 'nav-collapsed';
 
@@ -61,6 +57,13 @@ export function Sidebar() {
   const user = useStore((s) => s.currentUser);
   const logout = useStore((s) => s.logout);
   const settings = useStore((s) => s.settings);
+  const branches = useStore((s) => s.branches);
+  const viewBranchId = useStore((s) => s.viewBranchId);
+  const setViewBranch = useStore((s) => s.setViewBranch);
+  const scope = useBranchScope();
+  const isGlobal = isGlobalRole(user?.role);
+  const scopeName =
+    scope === 'all' ? null : (branches.find((b) => b.id === scope)?.name ?? null);
 
   /** Desktop (xl+): in-flow width toggle, persisted.
    *  Below xl: icon rail stays in-flow; hamburger opens an overlay drawer. */
@@ -194,6 +197,7 @@ export function Sidebar() {
               </p>
               <p className="truncate text-[11px] capitalize text-pine-300">
                 {user?.role.replace('_', ' ') ?? ''}
+                {scopeName ? ` · ${scopeName}` : ''}
               </p>
             </div>
             <div className={clsx('flex gap-1', drawerOpen ? 'flex-row' : 'flex-col', !collapsed && 'xl:flex-row')}>
@@ -237,6 +241,31 @@ export function Sidebar() {
               </button>
             </div>
           </div>
+          {/* Owner: pick which branch the app reads/writes as. Staff are
+              pinned to their own branch — shown next to their role above. */}
+          {isGlobal && (
+            <div
+              className={clsx(
+                'px-1 pt-2',
+                drawerOpen ? 'block' : 'hidden',
+                !collapsed && 'xl:block',
+              )}
+            >
+              <select
+                value={viewBranchId}
+                onChange={(e) => setViewBranch(e.target.value)}
+                aria-label="View branch"
+                className="w-full rounded-md border border-pine-800 bg-pine-900 px-2 py-1.5 text-[11px] text-pine-100 focus:outline-none focus:ring-1 focus:ring-pine-500"
+              >
+                <option value="all">All branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <p
             className={clsx(
               'px-2 pt-1 text-[10px] text-pine-400/70',

@@ -12,6 +12,7 @@ const LOCKOUT_SECONDS = 30;
 export default function LockPage() {
   const router = useRouter();
   const users = useStore((s) => s.users);
+  const branches = useStore((s) => s.branches);
   const currentUser = useStore((s) => s.currentUser);
   const unlock = useStore((s) => s.unlock);
   const logout = useStore((s) => s.logout);
@@ -100,6 +101,9 @@ export default function LockPage() {
                 <span className="text-sm font-medium text-white">{u.firstName}</span>
                 <span className="text-[10px] uppercase tracking-wide text-pine-400">
                   {u.role.replace('_', ' ')}
+                </span>
+                <span className="text-[10px] text-pine-500">
+                  {branches.find((b) => b.id === u.branchId)?.name ?? ''}
                 </span>
               </button>
             ))}

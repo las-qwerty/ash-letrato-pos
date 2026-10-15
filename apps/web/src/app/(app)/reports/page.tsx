@@ -7,7 +7,7 @@ import { IconChart, IconDownload, IconSearch, IconShield } from '@/components/ic
 import { Pagination } from '@/components/pagination';
 import { downloadXlsx } from '@/lib/excel';
 import { usePager } from '@/lib/use-pager';
-import { useStore } from '@/lib/store';
+import { useBranchScope, useStore } from '@/lib/store';
 import clsx from 'clsx';
 
 type Range = 'today' | '7d' | '30d' | 'custom';
@@ -26,10 +26,14 @@ const rangeStart = (r: Range, custom: string) => {
 export default function ReportsPage() {
   const sales = useStore((s) => s.sales);
   const branches = useStore((s) => s.branches);
+  const scope = useBranchScope();
   const [range, setRange] = useState<Range>('7d');
   const [customStart, setCustomStart] = useState(isoDay(new Date(Date.now() - 7 * 86400000)));
   const [customEnd, setCustomEnd] = useState(isoDay(new Date()));
-  const [branchId, setBranchId] = useState<'all' | string>('all');
+  const [branchPick, setBranchPick] = useState<'all' | string>('all');
+  // Non-owner roles are pinned to their own branch — the picker is hidden and
+  // the effective filter is forced to their scope.
+  const branchId = scope === 'all' ? branchPick : scope;
   const [payFilter, setPayFilter] = useState<'all' | string>('all');
 
   const from = useMemo(() => rangeStart(range, customStart), [range, customStart]);
@@ -241,12 +245,18 @@ export default function ReportsPage() {
       )}
 
       <div className="mb-4 flex flex-wrap gap-3">
-        <select className="input !w-44 !py-1.5 text-xs" value={branchId} onChange={(e) => setBranchId(e.target.value)} aria-label="Branch">
-          <option value="all">All branches</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </select>
+        {scope === 'all' ? (
+          <select className="input !w-44 !py-1.5 text-xs" value={branchId} onChange={(e) => setBranchPick(e.target.value)} aria-label="Branch">
+            <option value="all">All branches</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        ) : (
+          <span className="rounded-full bg-pine-50 px-3 py-1.5 text-xs font-medium text-pine-800 ring-1 ring-pine-200">
+            {branches.find((b) => b.id === scope)?.name ?? 'My branch'}
+          </span>
+        )}
         <select className="input !w-40 !py-1.5 text-xs" value={payFilter} onChange={(e) => setPayFilter(e.target.value)} aria-label="Payment method">
           <option value="all">All payments</option>
           {['cash', 'gcash', 'maya', 'card'].map((m) => (
@@ -374,18 +384,21 @@ export default function ReportsPage() {
 function AuditTrail() {
   const auditLog = useStore((s) => s.auditLog);
   const branches = useStore((s) => s.branches);
+  const scope = useBranchScope();
   const [q, setQ] = useState('');
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return auditLog.filter(
-      (e) =>
-        !needle ||
-        e.action.toLowerCase().includes(needle) ||
-        e.actorName.toLowerCase().includes(needle) ||
-        (e.detail ?? '').toLowerCase().includes(needle),
-    );
-  }, [auditLog, q]);
-  const pager = usePager(filtered, 25, [q]);
+    return auditLog
+      .filter((e) => scope === 'all' || !e.branchId || e.branchId === scope)
+      .filter(
+        (e) =>
+          !needle ||
+          e.action.toLowerCase().includes(needle) ||
+          e.actorName.toLowerCase().includes(needle) ||
+          (e.detail ?? '').toLowerCase().includes(needle),
+      );
+  }, [auditLog, q, scope]);
+  const pager = usePager(filtered, 25, [q, scope]);
   const branchName = (id?: string) => (id ? branches.find((b) => b.id === id)?.name ?? id : '—');
 
   return (

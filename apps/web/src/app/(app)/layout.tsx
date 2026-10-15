@@ -1,12 +1,14 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/sidebar';
+import { canAccess, defaultRoute } from '@/lib/roles';
 import { useStore } from '@/lib/store';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const user = useStore((s) => s.currentUser);
   const locked = useStore((s) => s.locked);
   const [ready, setReady] = useState(false);
@@ -17,7 +19,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     if (!user) router.replace('/login');
     else if (locked) router.replace('/lock');
-  }, [ready, user, locked, router]);
+    else if (!canAccess(user.role, pathname)) router.replace(defaultRoute(user.role));
+  }, [ready, user, locked, pathname, router]);
 
   // Auto-lock the till after N idle minutes (shared-device safety).
   const autoLockMinutes = useStore((s) => s.settings.autoLockMinutes);
@@ -40,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [ready, user, locked, autoLockMinutes, router]);
 
-  if (!ready || !user || locked) {
+  if (!ready || !user || locked || !canAccess(user.role, pathname)) {
     return (
       <div className="flex h-screen items-center justify-center bg-paper">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-pine-200 border-t-pine-700" />

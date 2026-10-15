@@ -121,7 +121,8 @@ export default function LoginPage() {
             <p className="mt-1">
               Register PINs — Simone <code className="rounded bg-stone-100 px-1">2468</code> ·
               Maria <code className="rounded bg-stone-100 px-1">1357</code> ·
-              Jonas <code className="rounded bg-stone-100 px-1">1122</code>
+              Jonas <code className="rounded bg-stone-100 px-1">1122</code> ·
+              Pia <code className="rounded bg-stone-100 px-1">8899</code>
             </p>
             <p className="mt-1">
               Staff can also sign in here with their own email + 4-digit PIN.

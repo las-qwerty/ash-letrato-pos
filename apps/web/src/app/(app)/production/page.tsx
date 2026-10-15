@@ -8,7 +8,7 @@ import { IconAlert, IconBarcode, IconBox, IconDownload } from '@/components/icon
 import { downloadXlsx } from '@/lib/excel';
 import { Pagination } from '@/components/pagination';
 import { usePager } from '@/lib/use-pager';
-import { useStore } from '@/lib/store';
+import { useBranchScope, useStore } from '@/lib/store';
 import clsx from 'clsx';
 
 const statusTone = { open: 'brass', completed: 'pine', flagged: 'clay' } as const;
@@ -27,7 +27,10 @@ export default function ProductionPage() {
   const correctPunchRecord = useStore((s) => s.correctPunchRecord);
   const addCounterReading = useStore((s) => s.addCounterReading);
 
-  const [branchId, setBranchId] = useState<'all' | string>('all');
+  const scope = useBranchScope();
+  const [branchPick, setBranchPick] = useState<'all' | string>('all');
+  // Handlers/managers work their own branch; the owner picks (or sees all).
+  const branchId = scope === 'all' ? branchPick : scope;
   const [newOpen, setNewOpen] = useState(false);
   const [counterOpen, setCounterOpen] = useState(false);
   const [completing, setCompleting] = useState<PunchRecord | null>(null);
@@ -157,17 +160,23 @@ export default function ProductionPage() {
       <div className="card mb-4 p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-lg font-medium">Today’s reconciliation</h2>
-          <select
-            className="input !w-48 !py-1.5 text-xs"
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
-            aria-label="Branch"
-          >
-            <option value="all">All branches</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
+          {scope === 'all' ? (
+            <select
+              className="input !w-48 !py-1.5 text-xs"
+              value={branchId}
+              onChange={(e) => setBranchPick(e.target.value)}
+              aria-label="Branch"
+            >
+              <option value="all">All branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="rounded-full bg-pine-50 px-3 py-1.5 text-xs font-medium text-pine-800 ring-1 ring-pine-200">
+              {branches.find((b) => b.id === scope)?.name ?? 'My branch'}
+            </span>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl bg-paper p-3">

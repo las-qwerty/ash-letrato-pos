@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { fmtTime, peso, type Sale } from '@simmy/core';
+import { fmtTime, peso, stockAt, type Sale } from '@simmy/core';
 import { Badge, PageHeader, Stat } from '@/components/ui';
 import { IconAlert } from '@/components/icons';
-import { useStore } from '@/lib/store';
+import { useBranchScope, useStore } from '@/lib/store';
 
 function last7Days(sales: Sale[]) {
   const days: { label: string; total: number }[] = [];
@@ -89,10 +89,19 @@ function SalesChart({ data }: { data: { label: string; total: number }[] }) {
 }
 
 export default function DashboardPage() {
-  const sales = useStore((s) => s.sales);
+  const allSales = useStore((s) => s.sales);
   const materials = useStore((s) => s.materials);
   const customers = useStore((s) => s.customers);
   const currentUser = useStore((s) => s.currentUser);
+  const branches = useStore((s) => s.branches);
+  const scope = useBranchScope();
+  const mainBranch = branches[0]?.id ?? '';
+  // Staff see their own branch's numbers; the owner sees everything or the
+  // branch they've picked in the sidebar.
+  const sales = useMemo(
+    () => (scope === 'all' ? allSales : allSales.filter((s) => s.branchId === scope)),
+    [allSales, scope],
+  );
 
   // re-derive time-based aggregates periodically so the chart stays live
   const [tick, setTick] = useState(0);
@@ -109,10 +118,12 @@ export default function DashboardPage() {
     return {
       todaySales,
       revenue: todaySales.reduce((a, s) => a + s.total, 0),
-      lowStock: materials.filter((m) => m.stockQty <= m.minStockLevel),
+      lowStock: materials.filter(
+        (m) => (scope === 'all' ? m.stockQty : stockAt(m, scope, mainBranch)) <= m.minStockLevel,
+      ),
       recent: sales.slice(0, 6),
     };
-  }, [sales, materials]);
+  }, [sales, materials, scope, mainBranch]);
 
   const trend = useMemo(() => last7Days(sales), [sales, tick]);
 

@@ -7,7 +7,7 @@ import { IconReceipt, IconSearch } from '@/components/icons';
 import { Pagination } from '@/components/pagination';
 import { usePager } from '@/lib/use-pager';
 import { Receipt } from '@/components/pos/receipt';
-import { useStore } from '@/lib/store';
+import { useBranchScope, useStore } from '@/lib/store';
 import clsx from 'clsx';
 
 type Action = { kind: 'void' | 'refund'; sale: Sale } | null;
@@ -20,6 +20,7 @@ export default function SalesPage() {
   const users = useStore((s) => s.users);
   const voidSale = useStore((s) => s.voidSale);
   const refundSale = useStore((s) => s.refundSale);
+  const scope = useBranchScope();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [viewing, setViewing] = useState<Sale | null>(null);
@@ -28,6 +29,7 @@ export default function SalesPage() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return sales
+      .filter((s) => scope === 'all' || s.branchId === scope)
       .filter((s) => status === 'all' || s.status === status)
       .filter(
         (s) =>
@@ -36,9 +38,9 @@ export default function SalesPage() {
           (s.customerName ?? '').toLowerCase().includes(needle) ||
           s.cashierName.toLowerCase().includes(needle),
       );
-  }, [sales, q, status]);
+  }, [sales, q, status, scope]);
 
-  const pager = usePager(filtered, 10, [q, status]);
+  const pager = usePager(filtered, 10, [q, status, scope]);
 
   return (
     <div className="p-6 lg:p-8">

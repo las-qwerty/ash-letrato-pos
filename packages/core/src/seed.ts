@@ -50,9 +50,19 @@ export const users: User[] = [
     firstName: 'Jonas',
     lastName: 'Cruz',
     role: 'cashier',
-    branchId: 'br-greenhills',
+    branchId: 'br-caloocan',
     canAuthorizeVoids: false,
     pin: '1122',
+  },
+  {
+    id: 'u-pia',
+    email: 'pia@ashletrato.com',
+    firstName: 'Pia',
+    lastName: 'Lim',
+    role: 'handler',
+    branchId: 'br-galleria',
+    canAuthorizeVoids: false,
+    pin: '8899',
   },
 ];
 
@@ -130,7 +140,7 @@ const hrs = (h: number) => new Date(now - h * 3_600_000).toISOString();
 
 export const sales: Sale[] = [
   {
-    id: 's-1', invoiceNumber: 'INV-2026-0841', createdAt: hrs(1), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-greenhills', branchName: 'Main — Greenhills',
+    id: 's-1', invoiceNumber: 'INV-2026-0841', createdAt: hrs(1), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-caloocan', branchName: 'Caloocan',
     customerName: 'Ana Lim',
     lines: [
       { name: 'Tarpaulin Print — 4×6 ft', qty: 1, unitPrice: 672, total: 672 },
@@ -140,7 +150,7 @@ export const sales: Sale[] = [
     paymentMethod: 'cash', amountTendered: 1500, change: 68, pointsEarned: 143, status: 'completed',
   },
   {
-    id: 's-2', invoiceNumber: 'INV-2026-0840', createdAt: hrs(2), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-greenhills', branchName: 'Main — Greenhills',
+    id: 's-2', invoiceNumber: 'INV-2026-0840', createdAt: hrs(2), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-caloocan', branchName: 'Caloocan',
     customerName: 'Cora Diaz',
     lines: [{ name: 'Framed 8R Portrait', qty: 1, unitPrice: 550, total: 550 }],
     subtotal: 550, discountTotal: 98.21, vatExempt: true, taxTotal: 0, total: 392.86,
@@ -156,7 +166,7 @@ export const sales: Sale[] = [
     paymentMethod: 'cash', amountTendered: 800, change: 20, pointsEarned: 78, status: 'completed',
   },
   {
-    id: 's-4', invoiceNumber: 'INV-2026-0838', createdAt: hrs(5), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-greenhills', branchName: 'Main — Greenhills',
+    id: 's-4', invoiceNumber: 'INV-2026-0838', createdAt: hrs(5), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-caloocan', branchName: 'Caloocan',
     lines: [{ name: 'Custom Mug', qty: 4, unitPrice: 250, total: 1000 }],
     subtotal: 1000, discountTotal: 0, vatExempt: false, taxTotal: 107.14, total: 1000,
     paymentMethod: 'cash', amountTendered: 1000, change: 0, pointsEarned: 100, status: 'refunded',
@@ -173,7 +183,7 @@ export const sales: Sale[] = [
     paymentMethod: 'cash', amountTendered: 220, change: 5.71, pointsEarned: 0, status: 'completed',
   },
   {
-    id: 's-6', invoiceNumber: 'INV-2026-0836', createdAt: hrs(28), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-greenhills', branchName: 'Main — Greenhills',
+    id: 's-6', invoiceNumber: 'INV-2026-0836', createdAt: hrs(28), cashierName: 'Jonas Cruz', cashierId: 'u-jonas', branchId: 'br-caloocan', branchName: 'Caloocan',
     lines: [{ name: 'Sintra Board Print — 2×2 ft', qty: 1, unitPrice: 380, total: 380 }],
     subtotal: 380, discountTotal: 0, vatExempt: false, taxTotal: 40.71, total: 380,
     paymentMethod: 'maya', amountTendered: 380, change: 0, pointsEarned: 38, status: 'voided',
@@ -225,6 +235,7 @@ export const employeeProfiles: EmployeeProfile[] = [
   { userId: 'u-admin', position: 'Owner', status: 'active', hiredAt: '2019-06-01', salaryType: 'monthly', rate: 60000, allowances: 0, deductions: 0 },
   { userId: 'u-maria', position: 'Branch Manager', status: 'active', hiredAt: '2020-02-10', salaryType: 'monthly', rate: 32000, allowances: 1500, deductions: 800, overtimeRate: 1.25 },
   { userId: 'u-jonas', position: 'Cashier', status: 'active', hiredAt: '2023-09-04', salaryType: 'daily', rate: 610, allowances: 300, deductions: 200, overtimeRate: 1.25 },
+  { userId: 'u-pia', position: 'Production Handler', status: 'active', hiredAt: '2024-03-11', salaryType: 'hourly', rate: 85, allowances: 0, deductions: 0 },
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -232,24 +243,26 @@ const yday = () => new Date(now - 86_400_000).toISOString().slice(0, 10);
 
 export const attendance: AttendanceRecord[] = [
   { id: 'att-1', userId: 'u-maria', branchId: 'br-greenhills', date: yday(), clockIn: hrs(30), clockOut: hrs(21) },
-  { id: 'att-2', userId: 'u-jonas', branchId: 'br-greenhills', date: yday(), clockIn: hrs(31), clockOut: hrs(22) },
-  { id: 'att-3', userId: 'u-jonas', branchId: 'br-greenhills', date: today(), clockIn: hrs(4) },
+  { id: 'att-2', userId: 'u-jonas', branchId: 'br-caloocan', date: yday(), clockIn: hrs(31), clockOut: hrs(22) },
+  { id: 'att-3', userId: 'u-jonas', branchId: 'br-caloocan', date: today(), clockIn: hrs(4) },
+  { id: 'att-4', userId: 'u-pia', branchId: 'br-galleria', date: today(), clockIn: hrs(3) },
 ];
 
 export const counterReadings: CounterReading[] = [
-  { id: 'cr-1', branchId: 'br-greenhills', machine: 'Punching Machine 1', kind: 'open', reading: 41230, employeeId: 'u-jonas', employeeName: 'Jonas Cruz', shiftDate: today(), createdAt: hrs(7) },
-  { id: 'cr-2', branchId: 'br-greenhills', machine: 'Punching Machine 1', kind: 'close', reading: 41312, employeeId: 'u-jonas', employeeName: 'Jonas Cruz', shiftDate: yday(), createdAt: hrs(26) },
+  { id: 'cr-1', branchId: 'br-caloocan', machine: 'Punching Machine 1', kind: 'open', reading: 41230, employeeId: 'u-jonas', employeeName: 'Jonas Cruz', shiftDate: today(), createdAt: hrs(7) },
+  { id: 'cr-2', branchId: 'br-caloocan', machine: 'Punching Machine 1', kind: 'close', reading: 41312, employeeId: 'u-jonas', employeeName: 'Jonas Cruz', shiftDate: yday(), createdAt: hrs(26) },
 ];
 
 export const punchRecords: PunchRecord[] = [
-  { id: 'punch-1', ticketCode: 'JT-0001', branchId: 'br-greenhills', employeeId: 'u-jonas', employeeName: 'Jonas Cruz', serviceType: 'Document Punching / Bind Prep', productId: 'p-punch', saleId: 's-5', qty: 40, damagedQty: 2, reprocessedQty: 1, status: 'completed', createdAt: hrs(25), completedAt: hrs(24) },
+  { id: 'punch-1', ticketCode: 'JT-0001', branchId: 'br-caloocan', employeeId: 'u-jonas', employeeName: 'Jonas Cruz', serviceType: 'Document Punching / Bind Prep', productId: 'p-punch', saleId: 's-5', qty: 40, damagedQty: 2, reprocessedQty: 1, status: 'completed', createdAt: hrs(25), completedAt: hrs(24) },
   { id: 'punch-2', ticketCode: 'JT-0002', branchId: 'br-greenhills', employeeId: 'u-maria', employeeName: 'Maria Santos', serviceType: 'Official Receipt Pad (50 sets)', productId: 'p-receipt', qty: 38, damagedQty: 0, reprocessedQty: 0, status: 'completed', createdAt: hrs(24), completedAt: hrs(23) },
+  { id: 'punch-3', ticketCode: 'JT-0003', branchId: 'br-galleria', employeeId: 'u-pia', employeeName: 'Pia Lim', serviceType: 'Sticker Vinyl (die-cut)', productId: 'p-vinyl-cut', qty: 25, damagedQty: 0, reprocessedQty: 0, status: 'open', createdAt: hrs(2) },
 ];
 
 export const stockMovements: StockMovement[] = [
   { id: 'mv-1', materialId: 'mat-a4', branchId: 'br-greenhills', kind: 'received', qty: 5000, reason: 'Supplier delivery — PO-1102', employeeId: 'u-maria', employeeName: 'Maria Santos', createdAt: hrs(30) },
   { id: 'mv-2', materialId: 'mat-a4', branchId: 'br-greenhills', kind: 'consumed', qty: -60, reason: 'Sale INV-2026-0837', refId: 's-5', employeeId: 'u-maria', employeeName: 'Maria Santos', createdAt: hrs(26) },
-  { id: 'mv-3', materialId: 'mat-pvc', branchId: 'br-greenhills', kind: 'waste', qty: -5, reason: 'Misprinted cards — damaged', employeeId: 'u-jonas', employeeName: 'Jonas Cruz', createdAt: hrs(20) },
+  { id: 'mv-3', materialId: 'mat-pvc', branchId: 'br-caloocan', kind: 'waste', qty: -5, reason: 'Misprinted cards — damaged', employeeId: 'u-jonas', employeeName: 'Jonas Cruz', createdAt: hrs(20) },
 ];
 
 export const payrollRuns: PayrollRun[] = [
