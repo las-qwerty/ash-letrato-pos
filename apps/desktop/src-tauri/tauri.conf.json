@@ -1,0 +1,35 @@
+{
+  "productName": "ASH LETRATO POS",
+  "version": "0.1.0",
+  "identifier": "co.simmy.pos",
+  "build": {
+    "devUrl": "http://localhost:3100",
+    "frontendDist": "../../web/out"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ASH LETRATO POS",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 700,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

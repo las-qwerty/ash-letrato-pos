@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "ASH LETRATO POS",
+    "slug": "simmy-pos",
+    "version": "0.1.0",
+    "orientation": "default",
+    "scheme": "simmypos",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F7F4EE",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#450A0A",
+      "image": "./assets/icon.png",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "package": "co.simmy.pos",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "ios": { "supportsTablet": true }
+  }
+}

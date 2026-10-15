@@ -1,0 +1,255 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import {
+  cartFees,
+  lineTotal,
+  missingHandlers,
+  peso,
+  pointsEarned,
+  pointsToPeso,
+  round2,
+  totals,
+  type PaymentMethod,
+  type Sale,
+} from '@simmy/core';
+import { useCart } from '@/lib/cart';
+import { useStore } from '@/lib/store';
+import { IconCard, IconCash, IconPhone } from '../icons';
+import { Modal } from '../ui';
+import { Receipt } from './receipt';
+import clsx from 'clsx';
+
+const methods: { id: PaymentMethod; label: string; icon: typeof IconCash }[] = [
+  { id: 'cash', label: 'Cash', icon: IconCash },
+  { id: 'gcash', label: 'GCash', icon: IconPhone },
+  { id: 'maya', label: 'Maya', icon: IconPhone },
+  { id: 'card', label: 'Card', icon: IconCard },
+];
+
+const quickCash = [100, 200, 500, 1000];
+
+export function PaymentModal({
+  open,
+  onClose,
+  total,
+}: {
+  open: boolean;
+  onClose: () => void;
+  total: number;
+}) {
+  const cart = useCart();
+  const settings = useStore((s) => s.settings);
+  const saleCount = useStore((s) => s.sales.length);
+  const currentUser = useStore((s) => s.currentUser);
+  const users = useStore((s) => s.users);
+  const recordSale = useStore((s) => s.recordSale);
+  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [tenderedStr, setTenderedStr] = useState('');
+  const [done, setDone] = useState<Sale | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setMethod('cash');
+      setTenderedStr('');
+      setDone(null);
+      setPayError(null);
+    }
+  }, [open]);
+
+  const tendered =
+    method === 'cash' ? Math.min(parseFloat(tenderedStr) || 0, 999_999) : total;
+  const change = round2(tendered - total);
+  const canComplete = total > 0 && tendered >= total;
+
+  const products = useStore((s) => s.products);
+  const fees = useMemo(
+    () => cartFees(cart.lines, products, settings),
+    [cart.lines, products, settings],
+  );
+  const t = useMemo(
+    () => totals(cart.lines, cart.discount, settings, fees.reduce((a, f) => a + f.amount, 0)),
+    [cart.lines, cart.discount, settings, fees],
+  );
+
+  const complete = () => {
+    const missing = missingHandlers(cart.lines);
+    if (missing.length) {
+      setPayError(`Assign a handler to ${missing.length} item${missing.length === 1 ? '' : 's'} first.`);
+      return;
+    }
+    try {
+      const branches = useStore.getState().branches;
+      const branch =
+        branches.find((b) => b.id === currentUser?.branchId) ?? branches[0];
+      const handlerName = (id?: string) => {
+        const u = users.find((x) => x.id === id);
+        return u ? `${u.firstName} ${u.lastName}` : undefined;
+      };
+      const sale: Sale = {
+        id: `s-${Date.now()}`,
+        invoiceNumber: `INV-2026-${String(842 + saleCount).padStart(4, '0')}`,
+        createdAt: new Date().toISOString(),
+        cashierName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '—',
+        cashierId: currentUser?.id,
+        branchId: branch?.id ?? '',
+        branchName: branch?.name ?? 'Main',
+        customerName: cart.customer
+          ? `${cart.customer.firstName} ${cart.customer.lastName}`
+          : undefined,
+        lines: cart.lines.map((l) => ({
+          productId: l.productId,
+          name: l.area
+            ? `${l.name} — ${l.area.width}×${l.area.height} ${l.area.unit}`
+            : l.name,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          total: lineTotal(l),
+          handlerId: l.handlerId,
+          handlerName: handlerName(l.handlerId),
+        })),
+        subtotal: t.subtotal,
+        discountTotal: t.lineDiscounts + t.saleDiscount + pointsToPeso(cart.redeemPoints, settings),
+        fees,
+        vatExempt: t.vatExemptAmount > 0,
+        taxTotal: t.taxTotal,
+        total,
+        paymentMethod: method,
+        amountTendered: tendered,
+        change: Math.max(0, change),
+        pointsEarned: cart.customer ? pointsEarned(total, settings) : 0,
+        status: 'completed',
+      };
+      recordSale(sale, cart.discount.promoId);
+      setDone(sale);
+    } catch {
+      setPayError('Could not save the sale — please try again.');
+    }
+  };
+
+  const finish = () => {
+    cart.clear();
+    setDone(null);
+    onClose();
+  };
+
+  return (
+    <Modal open={open} onClose={done ? finish : onClose} title={done ? 'Sale complete' : 'Payment'} wide>
+      {done ? (
+        <div>
+          <Receipt sale={done} settings={settings} />
+          <div className="mt-4 flex gap-2">
+            <button className="btn-secondary flex-1" onClick={() => window.print()}>
+              Print receipt
+            </button>
+            <button className="btn-primary flex-1" onClick={finish}>
+              New sale
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <p className="text-center">
+            <span className="text-xs font-medium uppercase tracking-wide text-stone-500">
+              Amount due
+            </span>
+            <span className="block font-display text-4xl font-medium tracking-tight text-pine-800">
+              {peso(total)}
+            </span>
+          </p>
+
+          <div className="mt-5 grid grid-cols-4 gap-2" role="radiogroup" aria-label="Payment method">
+            {methods.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                role="radio"
+                aria-checked={method === id}
+                onClick={() => setMethod(id)}
+                className={clsx(
+                  'flex flex-col items-center gap-1.5 rounded-xl border py-3 text-xs font-medium transition',
+                  method === id
+                    ? 'border-pine-600 bg-pine-50 text-pine-800'
+                    : 'border-stone-200 text-stone-500 hover:border-stone-300',
+                )}
+              >
+                <Icon width={18} height={18} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {method === 'cash' && (
+            <div className="mt-5">
+              <label htmlFor="tendered" className="label">
+                Cash tendered
+              </label>
+              <input
+                id="tendered"
+                className="input text-center font-display text-2xl"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={tenderedStr}
+                onChange={(e) => setTenderedStr(e.target.value.replace(/[^0-9.]/g, ''))}
+              />
+              <div className="mt-2 flex gap-2">
+                {quickCash.map((v) => (
+                  <button
+                    key={v}
+                    className="btn-secondary flex-1 !py-2.5 text-sm"
+                    onClick={() => setTenderedStr(String(v))}
+                  >
+                    ₱{v}
+                  </button>
+                ))}
+                <button
+                  className="btn-secondary flex-1 !py-2.5 text-sm"
+                  onClick={() => setTenderedStr(total.toFixed(2))}
+                >
+                  Exact
+                </button>
+              </div>
+            </div>
+          )}
+
+          {method === 'cash' && tendered > 0 && (
+            <div
+              className={clsx(
+                'mt-4 flex items-baseline justify-between rounded-lg px-4 py-3',
+                change >= 0 ? 'bg-pine-50' : 'bg-clay/10',
+              )}
+            >
+              <span className="text-sm text-stone-600">Change</span>
+              <span
+                className={clsx(
+                  'font-display text-2xl font-medium tabular-nums',
+                  change >= 0 ? 'text-pine-800' : 'text-clay',
+                )}
+              >
+                {peso(Math.max(0, change))}
+              </span>
+            </div>
+          )}
+
+          {payError && (
+            <p role="alert" className="mt-3 rounded-lg bg-clay/10 px-3 py-2 text-center text-xs font-medium text-clay">
+              {payError}
+            </p>
+          )}
+          <button
+            className="btn-primary mt-3 w-full !py-3 !text-base"
+            disabled={!canComplete}
+            onClick={complete}
+          >
+            Complete sale
+          </button>
+          {method === 'cash' && tendered > 0 && change < 0 && (
+            <p className="mt-2 text-center text-xs text-clay">
+              Amount tendered is less than the total
+            </p>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}

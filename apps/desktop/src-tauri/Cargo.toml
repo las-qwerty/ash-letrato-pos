@@ -1,0 +1,21 @@
+[package]
+name = "simmy-pos"
+version = "0.1.0"
+edition = "2021"
+description = "Simmy POS desktop shell"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Future plugins for POS hardware:
+# tauri-plugin-sql        → offline sale queue (SQLite)
+# tauri-plugin-stronghold → secure token storage
+# serialport              → ESC/POS receipt printers + cash drawer
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

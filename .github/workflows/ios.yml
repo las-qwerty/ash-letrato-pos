@@ -1,0 +1,62 @@
+name: iOS build (unsigned .ipa for sideloading)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build -w @simmy/web
+
+      - name: Sync Capacitor iOS
+        working-directory: apps/web
+        run: npx cap sync ios
+
+      - name: Build unsigned archive
+        working-directory: apps/web/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package .ipa
+        working-directory: apps/web/ios/App
+        run: |
+          mkdir -p Payload
+          cp -R "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" Payload/
+          zip -qr ash-letrato-pos.ipa Payload
+          ls -lh ash-letrato-pos.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ash-letrato-pos-ipa
+          path: apps/web/ios/App/ash-letrato-pos.ipa
+          retention-days: 30
+
+      - name: Publish to release
+        working-directory: apps/web/ios/App
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ios-latest ash-letrato-pos.ipa \
+            --title "iOS build (unsigned)" \
+            --notes "Install with Sideloadly or AltStore using a free Apple ID. Free-ID installs expire after 7 days — re-sign to refresh." \
+            --latest=false 2>/dev/null \
+          || gh release upload ios-latest ash-letrato-pos.ipa --clobber
