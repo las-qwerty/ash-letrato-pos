@@ -1,0 +1,47 @@
+name: OTA bundle (over-the-air app update)
+
+# Publishes the web build as a downloadable bundle. Installed apps fetch
+# app-version.json on launch and hot-swap to the new bundle next restart.
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/web/src/**'
+      - 'apps/web/public/**'
+      - 'packages/core/**'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build -w @simmy/web
+
+      - name: Package bundle
+        run: |
+          cd apps/web/out
+          zip -qr "$GITHUB_WORKSPACE/app-bundle.zip" .
+          VERSION="$(date -u +%Y%m%d%H%M)-${GITHUB_SHA::7}"
+          printf '{"version":"%s","url":"https://github.com/%s/releases/download/ota-latest/app-bundle.zip"}' \
+            "$VERSION" "$GITHUB_REPOSITORY" > "$GITHUB_WORKSPACE/app-version.json"
+          echo "version=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Publish to ota-latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ota-latest app-bundle.zip app-version.json \
+            --title "OTA bundle" --notes "Live web bundle — apps pull this automatically" \
+            --latest=false 2>/dev/null \
+          || gh release upload ota-latest app-bundle.zip app-version.json --clobber

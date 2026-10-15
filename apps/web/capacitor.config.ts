@@ -10,6 +10,13 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
+  plugins: {
+    CapacitorUpdater: {
+      autoUpdate: false,
+      autoDeleteFailed: true,
+      autoDeletePrevious: true,
+    },
+  },
 };
 
 export default config;

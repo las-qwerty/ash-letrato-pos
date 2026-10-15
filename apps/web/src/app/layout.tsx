@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Fraunces, Inter } from 'next/font/google';
+import { OtaUpdater } from '@/components/ota-updater';
 import './globals.css';
 
 const fraunces = Fraunces({
@@ -23,7 +24,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${fraunces.variable} ${inter.variable}`}>
-      <body>{children}</body>
+      <body>
+        <OtaUpdater />
+        {children}
+      </body>
     </html>
   );
 }
