@@ -50,7 +50,12 @@ export default function LockPage() {
       }
       setAttempts((a) => {
         const next = a + 1;
-        if (next >= MAX_ATTEMPTS) setCooldown(LOCKOUT_SECONDS);
+        // Store-level lockout wins — it escalates (30s→60s→…) and persists
+        // across remounts; the local counter is just the fast-path UI.
+        const storeUntil = useStore.getState().pinFailures[selected.id]?.until ?? 0;
+        const storeCooldown = Math.max(0, Math.ceil((storeUntil - Date.now()) / 1000));
+        if (next >= MAX_ATTEMPTS || storeCooldown > 0)
+          setCooldown(Math.max(LOCKOUT_SECONDS, storeCooldown));
         return next >= MAX_ATTEMPTS ? 0 : next;
       });
       setError(true);

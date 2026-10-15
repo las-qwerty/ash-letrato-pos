@@ -62,6 +62,8 @@ interface DataState {
   currentUser: User | null;
   /** Register is locked — app routes bounce to /lock until a staff PIN unlocks. */
   locked: boolean;
+  /** Per-user failed-PIN tracking — persisted so refresh can't reset the lockout. */
+  pinFailures: Record<string, { count: number; until: number }>;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   lock: () => void;
@@ -175,10 +177,15 @@ export const useStore = create<DataState>()(
 
       currentUser: null,
       locked: false,
+      pinFailures: {},
       login: async (email, password) => {
         const e = email.trim().toLowerCase();
         if (e === seed.demoCredentials.email && password === seed.demoCredentials.password) {
-          set({ currentUser: get().users[0] ?? null, locked: false });
+          // Recovery/demo login — always lands on an actual owner account, not
+          // blindly users[0] (which an import could have reshuffled).
+          const owner = get().users.find((u) => u.role === 'super_admin') ?? null;
+          if (!owner) return false;
+          set({ currentUser: owner, locked: false });
           return true;
         }
         // Staff sign in with their own email + register PIN.
@@ -202,7 +209,31 @@ export const useStore = create<DataState>()(
       verifyPin: async (userId, pin) => {
         const user = get().users.find((u) => u.id === userId);
         if (!user) return false;
-        if (user.pinHash) return (await hashPin(pin)) === user.pinHash;
+        // Store-level throttle — protects every PIN gate (unlock, supervisor
+        // prompts for voids/refunds/payroll/corrections), survives remounts and
+        // refresh because failures persist. Every 5th failure locks for an
+        // escalating 30s → 60s → 120s… capped at 15 min.
+        const fails = get().pinFailures[userId];
+        if (fails?.until && fails.until > Date.now()) return false;
+        const note = (ok: boolean) => {
+          set((s) => {
+            const prev = s.pinFailures[userId];
+            if (ok) {
+              const rest = { ...s.pinFailures };
+              delete rest[userId];
+              return { pinFailures: rest };
+            }
+            const count = (prev?.count ?? 0) + 1;
+            const lockout = Math.floor(count / 5);
+            const until =
+              count % 5 === 0
+                ? Date.now() + Math.min(30_000 * 2 ** (lockout - 1), 15 * 60_000)
+                : prev?.until ?? 0;
+            return { pinFailures: { ...s.pinFailures, [userId]: { count, until } } };
+          });
+          return ok;
+        };
+        if (user.pinHash) return note((await hashPin(pin)) === user.pinHash);
         // First verify of a seeded plaintext PIN: upgrade to a hash on success.
         if (user.pin === pin) {
           const pinHash = await hashPin(pin);
@@ -211,9 +242,9 @@ export const useStore = create<DataState>()(
               u.id === userId ? { ...u, pinHash, pin: '' } : u,
             ),
           }));
-          return true;
+          return note(true);
         }
-        return false;
+        return note(false);
       },
 
       recordSale: (sale, promoId) =>
@@ -230,7 +261,7 @@ export const useStore = create<DataState>()(
             }, 0);
             if (!used) return m;
             moves.push({
-              id: `mv-${Date.now()}-${m.id}`,
+              id: `mv-${Date.now()}-${m.id}-${Math.random().toString(36).slice(2, 7)}`,
               materialId: m.id,
               branchId: sale.branchId || main,
               kind: 'consumed',
@@ -296,7 +327,7 @@ export const useStore = create<DataState>()(
             }, 0);
             if (!restore) return m;
             moves.push({
-              id: `mv-${Date.now()}-${m.id}`,
+              id: `mv-${Date.now()}-${m.id}-${Math.random().toString(36).slice(2, 7)}`,
               materialId: m.id,
               branchId: sale.branchId || main,
               kind: 'void_reversal',
@@ -316,7 +347,7 @@ export const useStore = create<DataState>()(
             stockMovements: [...moves, ...s.stockMovements],
             auditLog: [
               {
-                id: `au-${Date.now()}`,
+                id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 at: new Date().toISOString(),
                 actorId: '',
                 actorName: authorizedBy,
@@ -357,29 +388,81 @@ export const useStore = create<DataState>()(
       refundSale: (id, reason, authorizedBy) =>
         set((s) => {
           const sale = s.sales.find((x) => x.id === id);
+          if (!sale || sale.status !== 'completed') return s;
+          const main = s.branches[0]?.id ?? '';
+          const moves: StockMovement[] = [];
+          // Returned goods come back into stock — same restoration as voidSale.
+          const materials = s.materials.map((m) => {
+            const restore = sale.lines.reduce((acc, line) => {
+              const product = line.productId
+                ? s.products.find((p) => p.id === line.productId)
+                : undefined;
+              const recipe = product?.consumes.find((c) => c.materialId === m.id);
+              return acc + (recipe ? recipe.qty * line.qty : 0);
+            }, 0);
+            if (!restore) return m;
+            moves.push({
+              id: `mv-${Date.now()}-${m.id}-${Math.random().toString(36).slice(2, 7)}`,
+              materialId: m.id,
+              branchId: sale.branchId || main,
+              kind: 'void_reversal',
+              qty: restore,
+              reason: `Refund ${sale.invoiceNumber} — ${reason}`,
+              refId: sale.id,
+              employeeId: '',
+              employeeName: authorizedBy,
+              createdAt: new Date().toISOString(),
+            });
+            return moveStock(m, sale.branchId || main, restore, main);
+          });
           return {
             sales: s.sales.map((x) =>
               x.id === id ? { ...x, status: 'refunded', voidReason: reason, authorizedBy } : x,
             ),
+            stockMovements: [...moves, ...s.stockMovements],
             auditLog: [
               {
-                id: `au-${Date.now()}`,
+                id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 at: new Date().toISOString(),
                 actorId: '',
                 actorName: authorizedBy,
                 action: 'refund_sale',
                 entity: 'sale',
                 entityId: id,
-                detail: `${sale?.invoiceNumber ?? id} — ${reason}`,
-                branchId: sale?.branchId,
+                detail: `${sale.invoiceNumber} — ${reason}`,
+                branchId: sale.branchId,
               },
               ...s.auditLog,
             ],
+            materials,
+            products: s.products.map((p) =>
+              p.pricing === 'fixed' && p.stockQty != null
+                ? {
+                    ...p,
+                    stockQty:
+                      p.stockQty +
+                      sale.lines
+                        .filter((l) => l.productId === p.id)
+                        .reduce((a, l) => a + l.qty, 0),
+                  }
+                : p,
+            ),
+            customers: s.customers.map((c) =>
+              sale.customerName === `${c.firstName} ${c.lastName}`
+                ? {
+                    ...c,
+                    lifetimeSpend: Math.max(0, c.lifetimeSpend - sale.total),
+                    loyaltyPoints: Math.max(0, c.loyaltyPoints - sale.pointsEarned),
+                    tier: tierForSpend(Math.max(0, c.lifetimeSpend - sale.total)),
+                  }
+                : c,
+            ),
           };
         }),
 
       restockMaterial: (id, qty, actor) =>
         set((s) => {
+          if (!Number.isFinite(qty) || qty <= 0) return s;
           const main = s.branches[0]?.id ?? '';
           const a = actor ?? { employeeId: '', employeeName: 'System', branchId: main };
           return {
@@ -388,7 +471,7 @@ export const useStore = create<DataState>()(
             ),
             stockMovements: [
               {
-                id: `mv-${Date.now()}-${id}`,
+                id: `mv-${Date.now()}-${id}-${Math.random().toString(36).slice(2, 7)}`,
                 materialId: id,
                 branchId: a.branchId,
                 kind: 'received',
@@ -405,6 +488,7 @@ export const useStore = create<DataState>()(
 
       adjustMaterial: (id, qty, reason, actor, kind = 'adjustment') =>
         set((s) => {
+          if (!Number.isFinite(qty) || qty === 0) return s;
           const main = s.branches[0]?.id ?? '';
           const a = actor ?? { employeeId: '', employeeName: 'System', branchId: main };
           return {
@@ -413,7 +497,7 @@ export const useStore = create<DataState>()(
             ),
             stockMovements: [
               {
-                id: `mv-${Date.now()}-${id}`,
+                id: `mv-${Date.now()}-${id}-${Math.random().toString(36).slice(2, 7)}`,
                 materialId: id,
                 branchId: a.branchId,
                 kind: kind as MovementKind,
@@ -427,7 +511,7 @@ export const useStore = create<DataState>()(
             ],
             auditLog: [
               {
-                id: `au-${Date.now()}`,
+                id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 at: new Date().toISOString(),
                 actorId: a.employeeId,
                 actorName: a.employeeName,
@@ -456,7 +540,7 @@ export const useStore = create<DataState>()(
             const diff = next - prevAt;
             if (diff === 0) return mm;
             moves.push({
-              id: `mv-${Date.now()}-${m.id}`,
+              id: `mv-${Date.now()}-${m.id}-${Math.random().toString(36).slice(2, 7)}`,
               materialId: m.id,
               branchId: a.branchId,
               kind: 'count_correction',
@@ -473,7 +557,7 @@ export const useStore = create<DataState>()(
         }),
 
       transferMaterial: (id, qty, fromBranchId, toBranchId, reason, actor) => {
-        if (qty <= 0 || fromBranchId === toBranchId) return false;
+        if (!Number.isFinite(qty) || qty <= 0 || fromBranchId === toBranchId) return false;
         const s = get();
         const main = s.branches[0]?.id ?? '';
         const src = s.materials.find((m) => m.id === id);
@@ -481,7 +565,7 @@ export const useStore = create<DataState>()(
         const srcAt = materializeStock(src, main).stockByBranch![fromBranchId] ?? 0;
         if (srcAt < qty) return false;
         const a = actor ?? { employeeId: '', employeeName: 'System', branchId: fromBranchId };
-        const refId = `tr-${Date.now()}`;
+        const refId = `tr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         set((st) => ({
           materials: st.materials.map((m) =>
             m.id === id ? moveStock(moveStock(m, fromBranchId, -qty, main), toBranchId, qty, main) : m,
@@ -492,7 +576,7 @@ export const useStore = create<DataState>()(
             ...st.stockMovements,
           ],
           auditLog: [
-            { id: `au-${Date.now()}`, at: new Date().toISOString(), actorId: a.employeeId, actorName: a.employeeName, action: 'transfer_material', entity: 'material', entityId: id, detail: `${qty} ${src.unit} ${fromBranchId} → ${toBranchId} — ${reason}`, branchId: fromBranchId },
+            { id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at: new Date().toISOString(), actorId: a.employeeId, actorName: a.employeeName, action: 'transfer_material', entity: 'material', entityId: id, detail: `${qty} ${src.unit} ${fromBranchId} → ${toBranchId} — ${reason}`, branchId: fromBranchId },
             ...st.auditLog,
           ],
         }));
@@ -510,7 +594,7 @@ export const useStore = create<DataState>()(
         }
         set((s) => ({
           punchRecords: [
-            { ...r, id: `punch-${Date.now()}`, status: 'open', createdAt: new Date().toISOString() },
+            { ...r, id: `punch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, status: 'open', createdAt: new Date().toISOString() },
             ...s.punchRecords,
           ],
         }));
@@ -533,7 +617,7 @@ export const useStore = create<DataState>()(
           ),
           auditLog: [
             {
-              id: `au-${Date.now()}`,
+              id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
               at: new Date().toISOString(),
               actorId: actor?.employeeId ?? '',
               actorName: actor?.employeeName ?? 'System',
@@ -561,7 +645,7 @@ export const useStore = create<DataState>()(
           ),
           auditLog: [
             {
-              id: `au-${Date.now()}`,
+              id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
               at: new Date().toISOString(),
               actorId: '',
               actorName: approvedBy,
@@ -577,7 +661,7 @@ export const useStore = create<DataState>()(
       addCounterReading: (r) =>
         set((s) => ({
           counterReadings: [
-            { ...r, id: `cr-${Date.now()}`, createdAt: new Date().toISOString() },
+            { ...r, id: `cr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, createdAt: new Date().toISOString() },
             ...s.counterReadings,
           ],
         })),
@@ -597,7 +681,7 @@ export const useStore = create<DataState>()(
         set((s) => ({
           attendance: [
             {
-              id: `att-${Date.now()}`,
+              id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
               userId,
               branchId,
               date: today,
@@ -626,7 +710,7 @@ export const useStore = create<DataState>()(
         set((s) => ({
           attendance: [
             {
-              id: `att-${Date.now()}`,
+              id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
               userId,
               branchId,
               date,
@@ -660,7 +744,7 @@ export const useStore = create<DataState>()(
         set((st) => ({
           payrollRuns: [
             {
-              id: `pr-${Date.now()}`,
+              id: `pr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
               periodStart,
               periodEnd,
               status: 'draft',
@@ -689,7 +773,7 @@ export const useStore = create<DataState>()(
           ),
           auditLog: [
             {
-              id: `au-${Date.now()}`,
+              id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
               at: new Date().toISOString(),
               actorId: '',
               actorName: by,
@@ -759,6 +843,7 @@ export const useStore = create<DataState>()(
           attendance: seed.attendance,
           payrollRuns: seed.payrollRuns,
           auditLog: seed.auditLog,
+          pinFailures: {},
           locked: false,
         }),
 
@@ -807,48 +892,57 @@ export const useStore = create<DataState>()(
       },
 
       importData: (raw) => {
-        if (!raw || typeof raw !== 'object') return 'That file is not a valid backup.';
-        const data = (raw as { data?: unknown }).data;
-        if (!data || typeof data !== 'object')
-          return 'Backup file is missing its data block — use a file exported from ASH LETRATO POS.';
-        const d = data as Record<string, unknown>;
-        for (const k of BACKUP_KEYS) {
-          if (!Array.isArray(d[k])) return `Backup is incomplete — "${k}" data is missing.`;
+        try {
+          if (!raw || typeof raw !== 'object') return 'That file is not a valid backup.';
+          const data = (raw as { data?: unknown }).data;
+          if (!data || typeof data !== 'object')
+            return 'Backup file is missing its data block — use a file exported from ASH LETRATO POS.';
+          const d = data as Record<string, unknown>;
+          for (const k of BACKUP_KEYS) {
+            if (!Array.isArray(d[k])) return `Backup is incomplete — "${k}" data is missing.`;
+          }
+          if (!d.settings || typeof d.settings !== 'object')
+            return 'Backup is incomplete — settings are missing.';
+          // Optional collections: accept when present, seed defaults otherwise.
+          const extra = {} as Pick<DataState, (typeof OPTIONAL_KEYS)[number]>;
+          for (const k of OPTIONAL_KEYS) {
+            (extra as Record<string, unknown>)[k] = Array.isArray(d[k])
+              ? d[k]
+              : (seed as unknown as Record<string, unknown>)[k];
+          }
+          // Same normalization as the v1→v2 migration so old backups stay valid.
+          const users = (d.users as User[]).map((u) => ({
+            ...u,
+            email: String(u.email ?? '').replace(/@simmy\.co$/i, '@ashletrato.com'),
+          }));
+          if (!users.every((u) => u.id && u.email))
+            return 'Backup is corrupted — a staff record is missing its id or email.';
+          const products = (d.products as Product[]).map((p) => ({
+            ...p,
+            kind: p.kind ?? (p.sku?.startsWith('SRV-') ? 'service' : 'product'),
+          }));
+          const cur = get().currentUser;
+          set({
+            users,
+            products,
+            branches: d.branches as Branch[],
+            categories: d.categories as Category[],
+            materials: d.materials as Material[],
+            customers: d.customers as Customer[],
+            sales: d.sales as Sale[],
+            promotions: d.promotions as Promotion[],
+            // Merge over seed defaults so a partial/old settings object can't
+            // leave required keys (notaryFee, tax rates…) undefined downstream.
+            settings: { ...seed.settings, ...(d.settings as Partial<StoreSettings>) },
+            ...extra,
+            pinFailures: {},
+            currentUser: cur && users.some((u) => u.id === cur.id) ? cur : null,
+            locked: false,
+          });
+          return null;
+        } catch {
+          return 'Backup could not be read — the file looks corrupted.';
         }
-        if (!d.settings || typeof d.settings !== 'object')
-          return 'Backup is incomplete — settings are missing.';
-        // Optional collections: accept when present, seed defaults otherwise.
-        const extra = {} as Pick<DataState, (typeof OPTIONAL_KEYS)[number]>;
-        for (const k of OPTIONAL_KEYS) {
-          (extra as Record<string, unknown>)[k] = Array.isArray(d[k])
-            ? d[k]
-            : (seed as unknown as Record<string, unknown>)[k];
-        }
-        // Same normalization as the v1→v2 migration so old backups stay valid.
-        const users = (d.users as User[]).map((u) => ({
-          ...u,
-          email: u.email.replace(/@simmy\.co$/i, '@ashletrato.com'),
-        }));
-        const products = (d.products as Product[]).map((p) => ({
-          ...p,
-          kind: p.kind ?? (p.sku?.startsWith('SRV-') ? 'service' : 'product'),
-        }));
-        const cur = get().currentUser;
-        set({
-          users,
-          products,
-          branches: d.branches as Branch[],
-          categories: d.categories as Category[],
-          materials: d.materials as Material[],
-          customers: d.customers as Customer[],
-          sales: d.sales as Sale[],
-          promotions: d.promotions as Promotion[],
-          settings: d.settings as StoreSettings,
-          ...extra,
-          currentUser: cur && users.some((u) => u.id === cur.id) ? cur : null,
-          locked: false,
-        });
-        return null;
       },
     }),
     {
@@ -863,13 +957,13 @@ export const useStore = create<DataState>()(
           if (Array.isArray(s.users)) {
             s.users = s.users.map((u) => ({
               ...u,
-              email: u.email.replace(/@simmy\.co$/i, '@ashletrato.com'),
+              email: String(u.email ?? '').replace(/@simmy\.co$/i, '@ashletrato.com'),
             }));
           }
           if (Array.isArray(s.products)) {
             s.products = s.products.map((p) => ({
               ...p,
-              kind: p.kind ?? (p.sku.startsWith('SRV-') ? 'service' : 'product'),
+              kind: p.kind ?? (p.sku?.startsWith('SRV-') ? 'service' : 'product'),
             }));
           }
         }

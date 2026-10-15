@@ -57,6 +57,10 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setImportMsg({ ok: false, text: 'That file is too large to be a valid backup (max 20 MB).' });
+      return;
+    }
     let raw: unknown;
     try {
       raw = JSON.parse(await file.text());

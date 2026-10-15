@@ -40,7 +40,6 @@ export function PaymentModal({
 }) {
   const cart = useCart();
   const settings = useStore((s) => s.settings);
-  const saleCount = useStore((s) => s.sales.length);
   const currentUser = useStore((s) => s.currentUser);
   const users = useStore((s) => s.users);
   const recordSale = useStore((s) => s.recordSale);
@@ -80,16 +79,22 @@ export function PaymentModal({
       return;
     }
     try {
-      const branches = useStore.getState().branches;
+      const { branches, sales } = useStore.getState();
       const branch =
         branches.find((b) => b.id === currentUser?.branchId) ?? branches[0];
+      // Next free invoice number — survives restores/resets better than
+      // counting rows (which collides after importing a smaller backup).
+      const maxSuffix = sales.reduce((m, s) => {
+        const n = parseInt(s.invoiceNumber.split('-').pop() ?? '', 10);
+        return Number.isFinite(n) ? Math.max(m, n) : m;
+      }, 841);
       const handlerName = (id?: string) => {
         const u = users.find((x) => x.id === id);
         return u ? `${u.firstName} ${u.lastName}` : undefined;
       };
       const sale: Sale = {
-        id: `s-${Date.now()}`,
-        invoiceNumber: `INV-2026-${String(842 + saleCount).padStart(4, '0')}`,
+        id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        invoiceNumber: `INV-2026-${String(maxSuffix + 1).padStart(4, '0')}`,
         createdAt: new Date().toISOString(),
         cashierName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '—',
         cashierId: currentUser?.id,
