@@ -1,8 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { clampPct, inRange, nonNeg } from '@simmy/core';
 import { Field, PageHeader } from '@/components/ui';
+import { checkForUpdate, getOtaStatus } from '@/lib/ota';
 import { useStore } from '@/lib/store';
 import clsx from 'clsx';
 
@@ -287,6 +289,8 @@ export default function SettingsPage() {
                 </p>
               )}
             </div>
+
+            {Capacitor.isNativePlatform() && <UpdatePanel />}
           </div>
         )}
 
@@ -295,6 +299,56 @@ export default function SettingsPage() {
           {saved && <span className="text-sm font-medium text-pine-700">Saved ✓</span>}
         </div>
       </form>
+    </div>
+  );
+}
+
+function UpdatePanel() {
+  const [info, setInfo] = useState({ bundle: '…', status: '…', at: '' });
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    setInfo(getOtaStatus());
+  }, []);
+
+  const check = async () => {
+    setChecking(true);
+    await checkForUpdate();
+    setInfo(getOtaStatus());
+    setChecking(false);
+  };
+
+  return (
+    <div className="border-t border-stone-200 pt-4">
+      <p className="text-sm font-medium">App updates</p>
+      <p className="mt-1 text-xs leading-relaxed text-stone-500">
+        This device checks for updates on launch and in the background. Downloaded updates apply the
+        next time the app is fully closed and reopened.
+      </p>
+      <dl className="mt-3 space-y-1 text-xs text-stone-600">
+        <div className="flex justify-between gap-4">
+          <dt className="text-stone-400">Running bundle</dt>
+          <dd className="font-mono">{info.bundle}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-stone-400">Last check</dt>
+          <dd className="text-right">{info.status}</dd>
+        </div>
+        {info.at && (
+          <div className="flex justify-between gap-4">
+            <dt className="text-stone-400">Checked at</dt>
+            <dd>{new Date(info.at).toLocaleString()}</dd>
+          </div>
+        )}
+      </dl>
+      <button
+        type="button"
+        className="btn-secondary mt-3 !py-1.5 text-xs"
+        onClick={() => void check()}
+        disabled={checking}
+      >
+        {checking ? 'Checking…' : 'Check for updates now'}
+      </button>
     </div>
   );
 }
