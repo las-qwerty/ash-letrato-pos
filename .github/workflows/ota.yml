@@ -41,16 +41,11 @@ jobs:
       # raw.githubusercontent.com serves files with a direct 200, while
       # release download URLs 302-redirect (which native downloaders drop).
       - name: Publish to ota branch
-        env:
-          VERSION: ${{ env.VERSION }}
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git checkout --orphan ota-publish
           git rm -rf . >/dev/null 2>&1 || true
-          mv "$GITHUB_WORKSPACE/app-bundle.zip" .
-          mv "$GITHUB_WORKSPACE/app-version.json" .
           git add app-bundle.zip app-version.json
-          git commit -m "OTA bundle $VERSION"
+          git commit -m "OTA bundle $version"
           git push -f origin ota-publish:ota
-          git checkout master || git checkout -
