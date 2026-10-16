@@ -103,3 +103,4 @@ export async function initOtaUpdates() {
     /* listener registration is best-effort */
   }
 }
+// OTA channel: bundles publish to the 'ota' branch (raw.githubusercontent.com) — see .github/workflows/ota.yml
