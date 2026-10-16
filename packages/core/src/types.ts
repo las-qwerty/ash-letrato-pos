@@ -199,6 +199,8 @@ export interface StoreSettings {
   autoLockMinutes: number;
   /** Default notary fee charged on notarized documents (₱). */
   notaryFee: number;
+  /** Show the Production module (job tickets, machine counters). */
+  productionEnabled: boolean;
 }
 
 // ─── Inventory movement ledger ────────────────────────────────────────────────

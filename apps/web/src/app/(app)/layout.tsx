@@ -11,7 +11,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const user = useStore((s) => s.currentUser);
   const locked = useStore((s) => s.locked);
+  const productionOn = useStore((s) => s.settings.productionEnabled);
   const [ready, setReady] = useState(false);
+
+  const moduleBlocked = pathname.startsWith('/production') && !productionOn;
 
   // wait one tick for persisted session to hydrate
   useEffect(() => setReady(true), []);
@@ -19,8 +22,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     if (!user) router.replace('/login');
     else if (locked) router.replace('/lock');
-    else if (!canAccess(user.role, pathname)) router.replace(defaultRoute(user.role));
-  }, [ready, user, locked, pathname, router]);
+    else if (!canAccess(user.role, pathname) || moduleBlocked)
+      router.replace(defaultRoute(user.role));
+  }, [ready, user, locked, pathname, router, moduleBlocked]);
 
   // Auto-lock the till after N idle minutes (shared-device safety).
   const autoLockMinutes = useStore((s) => s.settings.autoLockMinutes);
@@ -43,7 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [ready, user, locked, autoLockMinutes, router]);
 
-  if (!ready || !user || locked || !canAccess(user.role, pathname)) {
+  if (!ready || !user || locked || !canAccess(user.role, pathname) || moduleBlocked) {
     return (
       <div className="flex h-screen items-center justify-center bg-paper">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-pine-200 border-t-pine-700" />

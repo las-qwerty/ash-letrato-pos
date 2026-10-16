@@ -227,6 +227,7 @@ export const settings: StoreSettings = {
   supervisorPin: '2468',
   autoLockMinutes: 5,
   notaryFee: 1,
+  productionEnabled: false,
 };
 
 // ─── Enterprise seed data (HR, inventory ledger, production) ─────────────────

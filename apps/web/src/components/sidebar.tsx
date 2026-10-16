@@ -140,7 +140,11 @@ export function Sidebar() {
           aria-label="Main"
         >
           {nav
-            .filter((n) => (roleNav[user?.role ?? 'cashier'] ?? []).includes(n.href))
+            .filter(
+              (n) =>
+                (roleNav[user?.role ?? 'cashier'] ?? []).includes(n.href) &&
+                (n.href !== '/production' || settings.productionEnabled),
+            )
             .map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);
             return (

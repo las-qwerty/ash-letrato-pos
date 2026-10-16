@@ -127,6 +127,20 @@ export default function SettingsPage() {
             <Field label="Address line 2">
               <input className="input" value={draft.addressLine2} onChange={(e) => set('addressLine2', e.target.value)} />
             </Field>
+            <label className="flex cursor-pointer items-center justify-between gap-3 border-t border-stone-200 pt-4">
+              <span>
+                <span className="block text-sm font-medium">Production module</span>
+                <span className="mt-0.5 block text-xs text-stone-500">
+                  Job tickets and machine counters for print work. Off hides it from everyone.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                className="h-5 w-5 accent-pine-700"
+                checked={draft.productionEnabled}
+                onChange={(e) => set('productionEnabled', e.target.checked)}
+              />
+            </label>
           </div>
         )}
 
