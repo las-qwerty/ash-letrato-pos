@@ -7,6 +7,7 @@ import { IconReceipt, IconSearch } from '@/components/icons';
 import { Pagination } from '@/components/pagination';
 import { usePager } from '@/lib/use-pager';
 import { Receipt } from '@/components/pos/receipt';
+import { printReceipt } from '@/lib/print';
 import { useBranchScope, useStore } from '@/lib/store';
 import clsx from 'clsx';
 
@@ -154,7 +155,7 @@ export default function SalesPage() {
               </div>
             )}
             <Receipt sale={viewing} settings={settings} />
-            <button className="btn-secondary mt-4 w-full" onClick={() => window.print()}>
+            <button className="btn-secondary mt-4 w-full" onClick={() => void printReceipt(viewing, settings)}>
               Print
             </button>
           </>

@@ -1,3 +1,7 @@
+import { Capacitor } from '@capacitor/core';
+import type { Sale, StoreSettings } from '@simmy/core';
+import { buildReceiptEscPos } from './escpos';
+
 const CLONE_CLS = 'print-clone';
 const SOURCE_SEL = '.receipt-print, .print-sheet';
 
@@ -26,4 +30,25 @@ export function installPrintClone() {
     window.removeEventListener('beforeprint', onBefore);
     window.removeEventListener('afterprint', onAfter);
   };
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/**
+ * On Android builds, hand the receipt to RawBT as raw ESC/POS — the paired
+ * thermal printer prints it silently, no browser print dialog. The WebView
+ * intercepts the rawbt: scheme and launches it as an ACTION_VIEW intent.
+ * Falls back to window.print() everywhere else (web, iOS). Requires the
+ * RawBT app installed and the printer selected inside it.
+ */
+export function printReceipt(sale: Sale, settings: StoreSettings): void {
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    window.location.href = `rawbt:base64,${toBase64(buildReceiptEscPos(sale, settings))}`;
+    return;
+  }
+  window.print();
 }

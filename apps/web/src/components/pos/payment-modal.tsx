@@ -14,6 +14,7 @@ import {
   type Sale,
 } from '@simmy/core';
 import { useCart } from '@/lib/cart';
+import { printReceipt } from '@/lib/print';
 import { activeBranchId, useStore } from '@/lib/store';
 import { IconCard, IconCash, IconPhone } from '../icons';
 import { Modal } from '../ui';
@@ -58,12 +59,13 @@ export function PaymentModal({
   }, [open]);
 
   // Auto-print the receipt the moment the sale completes — the delay gives
-  // the receipt a frame to paint before the print dialog takes over.
+  // the receipt a frame to paint before the print dialog takes over. On
+  // Android this fires the RawBT intent instead, printing silently.
   useEffect(() => {
     if (!done) return;
-    const t = setTimeout(() => window.print(), 250);
+    const t = setTimeout(() => void printReceipt(done, settings), 250);
     return () => clearTimeout(t);
-  }, [done]);
+  }, [done, settings]);
 
   const tendered =
     method === 'cash' ? Math.min(parseFloat(tenderedStr) || 0, 999_999) : total;
@@ -159,7 +161,7 @@ export function PaymentModal({
             Prints on {settings.receiptWidthMm ?? 80} mm paper — change in Settings → Receipt
           </p>
           <div className="mt-3 flex gap-2">
-            <button className="btn-secondary flex-1" onClick={() => window.print()}>
+            <button className="btn-secondary flex-1" onClick={() => void printReceipt(done, settings)}>
               Print receipt
             </button>
             <button className="btn-primary flex-1" onClick={finish}>
