@@ -87,6 +87,8 @@
     color: #000 !important;
     -webkit-text-stroke: 0.3px #000;
     letter-spacing: 0.02em !important;
+    /* Light-gray dashed separators are invisible on thermal paper. */
+    border-color: #000 !important;
   }
 }
 

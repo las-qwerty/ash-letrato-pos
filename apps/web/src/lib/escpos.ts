@@ -50,7 +50,8 @@ export function buildReceiptEscPos(
   branch?: Branch,
 ): Uint8Array {
   const w = colsFor(settings.receiptWidthMm ?? 80);
-  const divider = '-'.repeat(w);
+  // '=' prints two strokes per column — visibly denser than '-' on thermal.
+  const divider = '='.repeat(w);
   const out: number[] = [];
 
   const text = (s: string) => {
@@ -60,6 +61,12 @@ export function buildReceiptEscPos(
   const line = (s = '') => {
     text(s);
     out.push(0x0a);
+  };
+  // Separators must burn thick — plain-weight lines are invisible on thermal.
+  const dividerLine = () => {
+    cmd(...BOLD_ON);
+    line(divider);
+    cmd(...BOLD_OFF);
   };
 
   cmd(...INIT);
@@ -73,7 +80,7 @@ export function buildReceiptEscPos(
   line(branch?.address ?? settings.addressLine1);
   line(settings.addressLine2);
   line(`TIN ${settings.tin} - ${settings.phone}`);
-  line(divider);
+  dividerLine();
 
   // Invoice meta — left aligned
   cmd(...ALIGN_LEFT);
@@ -81,7 +88,7 @@ export function buildReceiptEscPos(
   line(row(new Date(sale.createdAt).toLocaleDateString('en-PH'), new Date(sale.createdAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }), w));
   line(`Cashier: ${sale.cashierName}`);
   if (sale.customerName) line(`Customer: ${sale.customerName}`);
-  line(divider);
+  dividerLine();
 
   // Line items — product name, then qty x price …… total
   for (const l of sale.lines) {
@@ -90,7 +97,7 @@ export function buildReceiptEscPos(
     cmd(...BOLD_OFF);
     line(row(`   ${l.qty} x ${money(l.unitPrice)}`, money(l.total), w));
   }
-  line(divider);
+  dividerLine();
 
   // Totals
   line(row('Subtotal', money(sale.subtotal), w));
@@ -107,12 +114,12 @@ export function buildReceiptEscPos(
   cmd(...BOLD_OFF);
 
   if (sale.pointsEarned > 0) {
-    line(divider);
+    dividerLine();
     line(`Loyalty points earned: ${sale.pointsEarned}`);
   }
 
   // Footer
-  line(divider);
+  dividerLine();
   cmd(...ALIGN_CENTER);
   line(settings.receiptFooter);
   out.push(0x0a, 0x0a);
