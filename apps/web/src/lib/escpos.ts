@@ -97,7 +97,6 @@ export function buildReceiptEscPos(
   cmd(...BOLD_ON, ...DOUBLE);
   line(settings.storeName);
   cmd(...NORMAL_SIZE, ...BOLD_OFF);
-  if (branch) line(branch.name);
   line(branch?.address ?? settings.addressLine1);
   line(settings.addressLine2);
   line(`TIN ${settings.tin} - ${settings.phone}`);

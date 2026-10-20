@@ -24,7 +24,6 @@ export function Receipt({
         <p className="font-display text-base font-semibold tracking-wide text-ink">
           {settings.storeName}
         </p>
-        {branch && <p>{branch.name}</p>}
         <p>{branch?.address ?? settings.addressLine1}</p>
         <p>{settings.addressLine2}</p>
         <p>TIN {settings.tin} · {settings.phone}</p>
