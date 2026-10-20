@@ -125,6 +125,7 @@ export function buildReceiptEscPos(
   cmd(...ALIGN_CENTER, ...BOLD_ON);
   for (const l of settings.receiptFooter.split(/\n|<br\s*\/?>/i)) line(l);
   cmd(...BOLD_OFF);
+  dividerLine();
   out.push(0x0a, 0x0a);
 
   cmd(...FEED_CUT);

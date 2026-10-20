@@ -101,6 +101,7 @@ export function Receipt({
           {l}
         </p>
       ))}
+      <div className="mt-3 border-t border-dashed border-stone-300" />
     </div>
   );
 }
