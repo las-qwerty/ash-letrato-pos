@@ -30,6 +30,13 @@ jobs:
       - run: npm ci
       - run: npm run build -w @simmy/web
 
+      # The updater only fires when the manifest version exceeds the
+      # installed one — stamp each build with the run number so every push
+      # produces a strictly newer release (0.1.<run>).
+      - name: Stamp build version
+        working-directory: apps/desktop
+        run: npx tauri version "0.1.${{ github.run_number }}"
+
       # Signs updater artifacts + emits latest.json into the release — the
       # desktop app self-updates from it on launch. Needs repo secret
       # TAURI_SIGNING_PRIVATE_KEY (minisign private key; no password).
