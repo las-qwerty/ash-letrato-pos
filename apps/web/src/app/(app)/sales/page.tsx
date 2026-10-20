@@ -19,6 +19,7 @@ export default function SalesPage() {
   const sales = useStore((s) => s.sales);
   const settings = useStore((s) => s.settings);
   const users = useStore((s) => s.users);
+  const branches = useStore((s) => s.branches);
   const voidSale = useStore((s) => s.voidSale);
   const refundSale = useStore((s) => s.refundSale);
   const scope = useBranchScope();
@@ -154,8 +155,13 @@ export default function SalesPage() {
                 {viewing.voidReason ? ` — ${viewing.voidReason}` : ''}
               </div>
             )}
-            <Receipt sale={viewing} settings={settings} />
-            <button className="btn-secondary mt-4 w-full" onClick={() => void printReceipt(viewing, settings)}>
+            <Receipt sale={viewing} settings={settings} branch={branches.find((b) => b.id === viewing.branchId)} />
+            <button
+              className="btn-secondary mt-4 w-full"
+              onClick={() =>
+                void printReceipt(viewing, settings, branches.find((b) => b.id === viewing.branchId))
+              }
+            >
               Print
             </button>
           </>

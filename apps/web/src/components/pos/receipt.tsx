@@ -1,13 +1,15 @@
 'use client';
 
-import { fmtTime, fmtDate, peso, type Sale, type StoreSettings } from '@simmy/core';
+import { fmtTime, fmtDate, peso, type Branch, type Sale, type StoreSettings } from '@simmy/core';
 
 export function Receipt({
   sale,
   settings,
+  branch,
 }: {
   sale: Sale;
   settings: StoreSettings;
+  branch?: Branch;
 }) {
   const mm = settings.receiptWidthMm ?? 80;
   return (
@@ -22,7 +24,8 @@ export function Receipt({
         <p className="font-display text-base font-semibold tracking-wide text-ink">
           {settings.storeName}
         </p>
-        <p>{settings.addressLine1}</p>
+        {branch && <p>{branch.name}</p>}
+        <p>{branch?.address ?? settings.addressLine1}</p>
         <p>{settings.addressLine2}</p>
         <p>TIN {settings.tin} · {settings.phone}</p>
       </div>

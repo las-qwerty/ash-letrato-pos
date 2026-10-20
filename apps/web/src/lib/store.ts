@@ -992,6 +992,17 @@ export const useStore = create<DataState>()(
         if (s.settings && s.settings.receiptWidthMm == null) {
           s.settings = { ...s.settings, receiptWidthMm: 80 };
         }
+        // Refresh default footers to the current wording — leave custom text alone.
+        if (
+          s.settings &&
+          (s.settings.receiptFooter === 'Thank you! This serves as your sales invoice.' ||
+            s.settings.receiptFooter === 'Thank you! This does not serve as invoice.')
+        ) {
+          s.settings = {
+            ...s.settings,
+            receiptFooter: 'Thank you! This does not serve as an invoice',
+          };
+        }
         return s;
       },
     },

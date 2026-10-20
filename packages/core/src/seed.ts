@@ -215,11 +215,11 @@ export const promotions: Promotion[] = [
 
 export const settings: StoreSettings = {
   storeName: 'ASH LETRATO, INC.',
-  tin: '008-421-773-000',
+  tin: '212-053-098-00612',
   addressLine1: 'Unit 20 Maranaw Plaza, Greenhills East, Mandaluyong',
   addressLine2: 'BIR Accredited Printer · sales@ashletrato.com',
   phone: '(02) 8725-7641',
-  receiptFooter: 'Thank you! This serves as your sales invoice.',
+  receiptFooter: 'Thank you! This does not serve as an invoice',
   vatRate: 12,
   seniorPwdDiscountPct: 20,
   loyaltyEarnRate: 0.1,

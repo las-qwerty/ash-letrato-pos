@@ -1,4 +1,4 @@
-import { peso, type Sale, type StoreSettings } from '@simmy/core';
+import { peso, type Branch, type Sale, type StoreSettings } from '@simmy/core';
 
 // ESC/POS commands
 const INIT = [0x1b, 0x40];
@@ -44,7 +44,11 @@ function row(left: string, right: string, w: number): string {
  * via RawBT (rawbt:base64 intent) — native text printing, so it is sharp,
  * instant, and prints the full length regardless of viewport.
  */
-export function buildReceiptEscPos(sale: Sale, settings: StoreSettings): Uint8Array {
+export function buildReceiptEscPos(
+  sale: Sale,
+  settings: StoreSettings,
+  branch?: Branch,
+): Uint8Array {
   const w = colsFor(settings.receiptWidthMm ?? 80);
   const divider = '-'.repeat(w);
   const out: number[] = [];
@@ -65,7 +69,8 @@ export function buildReceiptEscPos(sale: Sale, settings: StoreSettings): Uint8Ar
   cmd(...BOLD_ON, ...DOUBLE);
   line(settings.storeName);
   cmd(...NORMAL_SIZE, ...BOLD_OFF);
-  line(settings.addressLine1);
+  if (branch) line(branch.name);
+  line(branch?.address ?? settings.addressLine1);
   line(settings.addressLine2);
   line(`TIN ${settings.tin} - ${settings.phone}`);
   line(divider);

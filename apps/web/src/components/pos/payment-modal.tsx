@@ -41,6 +41,7 @@ export function PaymentModal({
 }) {
   const cart = useCart();
   const settings = useStore((s) => s.settings);
+  const branches = useStore((s) => s.branches);
   const currentUser = useStore((s) => s.currentUser);
   const users = useStore((s) => s.users);
   const recordSale = useStore((s) => s.recordSale);
@@ -61,11 +62,13 @@ export function PaymentModal({
   // Auto-print the receipt the moment the sale completes — the delay gives
   // the receipt a frame to paint before the print dialog takes over. On
   // Android this fires the RawBT intent instead, printing silently.
+  const doneBranch = done ? branches.find((b) => b.id === done.branchId) : undefined;
+
   useEffect(() => {
     if (!done) return;
-    const t = setTimeout(() => void printReceipt(done, settings), 250);
+    const t = setTimeout(() => void printReceipt(done, settings, doneBranch), 250);
     return () => clearTimeout(t);
-  }, [done, settings]);
+  }, [done, settings, doneBranch]);
 
   const tendered =
     method === 'cash' ? Math.min(parseFloat(tenderedStr) || 0, 999_999) : total;
@@ -156,12 +159,12 @@ export function PaymentModal({
     <Modal open={open} onClose={done ? finish : onClose} title={done ? 'Sale complete' : 'Payment'} wide>
       {done ? (
         <div>
-          <Receipt sale={done} settings={settings} />
+          <Receipt sale={done} settings={settings} branch={doneBranch} />
           <p className="mt-2 text-center text-xs text-stone-400">
             Prints on {settings.receiptWidthMm ?? 80} mm paper — change in Settings → Receipt
           </p>
           <div className="mt-3 flex gap-2">
-            <button className="btn-secondary flex-1" onClick={() => void printReceipt(done, settings)}>
+            <button className="btn-secondary flex-1" onClick={() => void printReceipt(done, settings, doneBranch)}>
               Print receipt
             </button>
             <button className="btn-primary flex-1" onClick={finish}>

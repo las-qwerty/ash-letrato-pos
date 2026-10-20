@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { AppLauncher } from '@capacitor/app-launcher';
-import type { Sale, StoreSettings } from '@simmy/core';
+import type { Branch, Sale, StoreSettings } from '@simmy/core';
 import { buildReceiptEscPos } from './escpos';
 import { toast } from './toast';
 
@@ -46,9 +46,13 @@ function toBase64(bytes: Uint8Array): string {
  * missing RawBT install and warns instead of failing silently. Falls back
  * to window.print() everywhere else (web, iOS).
  */
-export async function printReceipt(sale: Sale, settings: StoreSettings): Promise<void> {
+export async function printReceipt(
+  sale: Sale,
+  settings: StoreSettings,
+  branch?: Branch,
+): Promise<void> {
   if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-    const url = `rawbt:base64,${toBase64(buildReceiptEscPos(sale, settings))}`;
+    const url = `rawbt:base64,${toBase64(buildReceiptEscPos(sale, settings, branch))}`;
     try {
       const { value } = await AppLauncher.canOpenUrl({ url });
       if (value) {
