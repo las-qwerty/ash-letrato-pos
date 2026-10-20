@@ -39,6 +39,22 @@ function row(left: string, right: string, w: number): string {
   return left + ' '.repeat(Math.max(1, w - left.length - right.length)) + right;
 }
 
+function wrap(s: string, w: number): string[] {
+  s = ascii(s);
+  if (s.length <= w) return [s];
+  const lines: string[] = [];
+  let cur = '';
+  for (const word of s.split(' ')) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (next.length > w && cur) {
+      lines.push(cur);
+      cur = word;
+    } else cur = next;
+  }
+  lines.push(cur);
+  return lines;
+}
+
 /**
  * Build the raw ESC/POS byte stream for a sale receipt. Sent to the printer
  * via RawBT (rawbt:base64 intent) — native text printing, so it is sharp,
@@ -60,15 +76,18 @@ export function buildReceiptEscPos(
   };
   const cmd = (...bytes: number[]) => out.push(...bytes);
   const line = (s = '') => {
-    text(s);
-    out.push(0x0a);
+    for (const l of wrap(s, w)) {
+      text(l);
+      out.push(0x0a);
+    }
   };
   // Separators print as a raw raster bar (GS v 0) — solid burned pixels
   // across the full width, not glyph strokes, so it can't wash out.
   const dividerLine = () => {
+    out.push(0x0a);
     cmd(0x1d, 0x76, 0x30, 0x00, barBytes, 0x00, 0x08, 0x00);
     for (let i = 0; i < barBytes * 8; i++) out.push(0xff);
-    out.push(0x0a);
+    out.push(0x0a, 0x0a);
   };
 
   cmd(...INIT);
