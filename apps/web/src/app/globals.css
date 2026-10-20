@@ -74,6 +74,11 @@
   }
   .print-clone.receipt-print {
     page: receipt;
+    padding: 0 !important;
+  }
+  .print-clone.receipt-print,
+  .print-clone.receipt-print * {
+    letter-spacing: 0 !important;
   }
   .print-clone.print-sheet {
     page: label;
@@ -103,4 +108,27 @@
 @page label {
   size: 100mm auto;
   margin: 0;
+}
+
+.receipt-paper {
+  margin: 0 auto;
+  padding: 4mm 0 14mm;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 2.5mm;
+  line-height: 4.23mm;
+}
+.receipt-big {
+  font-size: 2em;
+  line-height: 8.46mm;
+}
+.receipt-bar {
+  height: 4.23mm;
+}
+.receipt-bar::before {
+  content: '';
+  display: block;
+  height: 1mm;
+  background: #000;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }

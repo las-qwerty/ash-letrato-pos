@@ -1,4 +1,5 @@
-import { peso, type Branch, type Sale, type StoreSettings } from '@simmy/core';
+import type { Branch, Sale, StoreSettings } from '@simmy/core';
+import { colsFor, receiptBlocks } from './receipt-layout';
 
 // ESC/POS commands
 const INIT = [0x1b, 0x40];
@@ -10,29 +11,6 @@ const DOUBLE = [0x1d, 0x21, 0x11]; // 2x width + height
 const NORMAL_SIZE = [0x1d, 0x21, 0x00];
 const FEED_CUT = [0x1b, 0x64, 0x08, 0x1d, 0x56, 0x42, 0x00]; // feed 8, partial cut
 
-/** Printable columns (Font A) per paper width. */
-function colsFor(mm: number): number {
-  if (mm >= 80) return 42;
-  if (mm >= 72) return 38;
-  return 32;
-}
-
-/** Strip characters ESC/POS basic charset can't print. */
-function ascii(s: string): string {
-  return s
-    .replace(/₱/g, 'P')
-    .replace(/[×✕]/g, 'x')
-    .replace(/[–—]/g, '-')
-    .replace(/['']/g, "'")
-    .replace(/[""]/g, '"')
-    .replace(/[•·]/g, '*')
-    .replace(/[^\x20-\x7e]/g, '');
-}
-
-function money(n: number): string {
-  return ascii(peso(n));
-}
-
 /** Pad/truncate a left/right pair to exactly `w` columns. */
 function row(left: string, right: string, w: number): string {
   left = left.length > w - right.length - 1 ? left.slice(0, w - right.length - 1) : left;
@@ -40,7 +18,6 @@ function row(left: string, right: string, w: number): string {
 }
 
 function wrap(s: string, w: number): string[] {
-  s = ascii(s);
   if (s.length <= w) return [s];
   const lines: string[] = [];
   let cur = '';
@@ -69,83 +46,29 @@ export function buildReceiptEscPos(
   const w = colsFor(mm);
   // Printable dot-width per paper size (≈203dpi, kept inside the margins).
   const barBytes = mm >= 80 ? 64 : mm >= 72 ? 56 : 48;
-  const out: number[] = [];
+  const out: number[] = [...INIT];
 
-  const text = (s: string) => {
-    for (const ch of ascii(s)) out.push(ch.charCodeAt(0));
-  };
-  const cmd = (...bytes: number[]) => out.push(...bytes);
-  const line = (s = '') => {
-    for (const l of wrap(s, w)) {
-      text(l);
-      out.push(0x0a);
-    }
-  };
   // Separators print as a raw raster bar (GS v 0) — solid burned pixels
   // across the full width, not glyph strokes, so it can't wash out.
   const dividerLine = () => {
-    out.push(0x0a);
-    cmd(0x1d, 0x76, 0x30, 0x00, barBytes, 0x00, 0x08, 0x00);
+    out.push(0x0a, 0x1d, 0x76, 0x30, 0x00, barBytes, 0x00, 0x08, 0x00);
     for (let i = 0; i < barBytes * 8; i++) out.push(0xff);
     out.push(0x0a, 0x0a);
   };
 
-  cmd(...INIT);
-
-  // Header — centered, store name double-size
-  cmd(...ALIGN_CENTER);
-  cmd(...BOLD_ON, ...DOUBLE);
-  line(settings.storeName);
-  cmd(...NORMAL_SIZE, ...BOLD_OFF);
-  line(branch?.address ?? settings.addressLine1);
-  line(settings.addressLine2);
-  line(`TIN ${settings.tin} - ${settings.phone}`);
-  dividerLine();
-
-  // Invoice meta — left aligned
-  cmd(...ALIGN_LEFT);
-  line(row(sale.invoiceNumber, '', w));
-  line(row(new Date(sale.createdAt).toLocaleDateString('en-PH'), new Date(sale.createdAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }), w));
-  line(`Cashier: ${sale.cashierName}`);
-  if (sale.customerName) line(`Customer: ${sale.customerName}`);
-  dividerLine();
-
-  // Line items — product name, then qty x price …… total
-  for (const l of sale.lines) {
-    cmd(...BOLD_ON);
-    line(l.name);
-    cmd(...BOLD_OFF);
-    line(row(`   ${l.qty} x ${money(l.unitPrice)}`, money(l.total), w));
-  }
-  dividerLine();
-
-  // Totals
-  line(row('Subtotal', money(sale.subtotal), w));
-  if (sale.discountTotal > 0) line(row('Less: Discounts', `-${money(sale.discountTotal)}`, w));
-  if (sale.vatExempt) line(row('VAT-Exempt Sale', '-', w));
-  for (const f of sale.fees ?? []) line(row(f.label, `+${money(f.amount)}`, w));
-  if (!sale.vatExempt) line(row('VAT (incl.)', money(sale.taxTotal), w));
-
-  cmd(...BOLD_ON, ...DOUBLE);
-  line(row('TOTAL', money(sale.total), w / 2));
-  cmd(...NORMAL_SIZE);
-  line(row(sale.paymentMethod.toUpperCase(), money(sale.amountTendered), w));
-  line(row('Change', money(sale.change), w));
-  cmd(...BOLD_OFF);
-
-  if (sale.pointsEarned > 0) {
-    dividerLine();
-    line(`Loyalty points earned: ${sale.pointsEarned}`);
+  for (const b of receiptBlocks(sale, settings, branch)) {
+    if (b.k === 'bar') {
+      dividerLine();
+      continue;
+    }
+    out.push(...(b.center ? ALIGN_CENTER : ALIGN_LEFT), ...(b.bold ? BOLD_ON : BOLD_OFF), ...(b.big ? DOUBLE : NORMAL_SIZE));
+    const cols = b.big ? w / 2 : w;
+    for (const line of b.k === 'row' ? [row(b.l, b.r, cols)] : wrap(b.s, cols)) {
+      for (const ch of line) out.push(ch.charCodeAt(0));
+      out.push(0x0a);
+    }
   }
 
-  // Footer — one physical line per \n or <br> in the configured text
-  dividerLine();
-  cmd(...ALIGN_CENTER, ...BOLD_ON);
-  for (const l of settings.receiptFooter.split(/\n|<br\s*\/?>/i)) line(l);
-  cmd(...BOLD_OFF);
-  dividerLine();
-  out.push(0x0a, 0x0a);
-
-  cmd(...FEED_CUT);
+  out.push(0x0a, 0x0a, ...FEED_CUT);
   return new Uint8Array(out);
 }
