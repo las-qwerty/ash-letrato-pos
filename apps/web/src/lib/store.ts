@@ -998,11 +998,12 @@ export const useStore = create<DataState>()(
           ['Thank you! This serves as your sales invoice.',
             'Thank you! This does not serve as invoice.',
             'Thank you! This does not serve as an invoice',
+            'THIS DOES NOT SERVE AS AN INVOICE\nThank you!',
           ].includes(s.settings.receiptFooter)
         ) {
           s.settings = {
             ...s.settings,
-            receiptFooter: 'THIS DOES NOT SERVE AS AN INVOICE\nThank you!',
+            receiptFooter: 'Thank you!\nTHIS DOES NOT SERVE AS AN INVOICE',
           };
         }
         return s;

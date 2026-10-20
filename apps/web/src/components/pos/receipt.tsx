@@ -96,7 +96,7 @@ export function Receipt({
       )}
 
       <div className="my-3 border-t border-dashed border-stone-300" />
-      {settings.receiptFooter.split('\n').map((l, i) => (
+      {settings.receiptFooter.split(/\n|<br\s*\/?>/i).map((l, i) => (
         <p key={i} className="text-center font-bold">
           {l}
         </p>

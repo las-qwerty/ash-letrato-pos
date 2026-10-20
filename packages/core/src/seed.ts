@@ -219,7 +219,7 @@ export const settings: StoreSettings = {
   addressLine1: 'Unit 20 Maranaw Plaza, Greenhills East, Mandaluyong',
   addressLine2: 'BIR Accredited Printer · sales@ashletrato.com',
   phone: '(02) 8725-7641',
-  receiptFooter: 'THIS DOES NOT SERVE AS AN INVOICE\nThank you!',
+  receiptFooter: 'Thank you!\nTHIS DOES NOT SERVE AS AN INVOICE',
   vatRate: 12,
   seniorPwdDiscountPct: 20,
   loyaltyEarnRate: 0.1,
