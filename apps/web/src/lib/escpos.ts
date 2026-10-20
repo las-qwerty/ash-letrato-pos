@@ -7,6 +7,7 @@ const ALIGN_CENTER = [0x1b, 0x61, 0x01];
 const BOLD_ON = [0x1b, 0x45, 0x01];
 const BOLD_OFF = [0x1b, 0x45, 0x00];
 const DOUBLE = [0x1d, 0x21, 0x11]; // 2x width + height
+const DOUBLE_H = [0x1d, 0x21, 0x01]; // 2x height only
 const NORMAL_SIZE = [0x1d, 0x21, 0x00];
 const FEED_CUT = [0x1b, 0x64, 0x04, 0x1d, 0x56, 0x42, 0x00]; // feed 4, partial cut
 
@@ -50,8 +51,9 @@ export function buildReceiptEscPos(
   branch?: Branch,
 ): Uint8Array {
   const w = colsFor(settings.receiptWidthMm ?? 80);
-  // '=' prints two strokes per column — visibly denser than '-' on thermal.
-  const divider = '='.repeat(w);
+  // '#' is a 4-stroke glyph — a full row of it reads as a solid band even
+  // if the printer ignores the bold/size commands below.
+  const divider = '#'.repeat(w);
   const out: number[] = [];
 
   const text = (s: string) => {
@@ -62,11 +64,12 @@ export function buildReceiptEscPos(
     text(s);
     out.push(0x0a);
   };
-  // Separators must burn thick — plain-weight lines are invisible on thermal.
+  // Separators must burn thick — plain-weight lines are invisible on
+  // thermal. Double-height + bold + dense glyphs ≈ a solid rule.
   const dividerLine = () => {
-    cmd(...BOLD_ON);
+    cmd(...BOLD_ON, ...DOUBLE_H);
     line(divider);
-    cmd(...BOLD_OFF);
+    cmd(...NORMAL_SIZE, ...BOLD_OFF);
   };
 
   cmd(...INIT);
