@@ -62,6 +62,9 @@
   .print-sheet,
   .print-sheet * {
     visibility: visible;
+    /* Bold + pure black — thermal printers render faint gray otherwise. */
+    font-weight: 700 !important;
+    color: #000 !important;
   }
   .receipt-print {
     position: fixed;

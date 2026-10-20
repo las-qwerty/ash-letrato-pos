@@ -57,6 +57,14 @@ export function PaymentModal({
     }
   }, [open]);
 
+  // Auto-print the receipt the moment the sale completes — the delay gives
+  // the receipt a frame to paint before the print dialog takes over.
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => window.print(), 250);
+    return () => clearTimeout(t);
+  }, [done]);
+
   const tendered =
     method === 'cash' ? Math.min(parseFloat(tenderedStr) || 0, 999_999) : total;
   const change = round2(tendered - total);
