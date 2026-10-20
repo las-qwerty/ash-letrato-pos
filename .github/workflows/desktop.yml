@@ -36,6 +36,7 @@ jobs:
       # feeds the updater manifest; Cargo.toml feeds the binary version.
       - name: Stamp build version
         working-directory: apps/desktop
+        shell: bash
         run: >-
           node -e "const fs=require('fs');const v='0.1.${{ github.run_number }}';
           const f='src-tauri/tauri.conf.json';const j=JSON.parse(fs.readFileSync(f,'utf8'));
