@@ -155,7 +155,10 @@ export function PaymentModal({
       {done ? (
         <div>
           <Receipt sale={done} settings={settings} />
-          <div className="mt-4 flex gap-2">
+          <p className="mt-2 text-center text-xs text-stone-400">
+            Prints on {settings.receiptWidthMm ?? 80} mm paper — change in Settings → Receipt
+          </p>
+          <div className="mt-3 flex gap-2">
             <button className="btn-secondary flex-1" onClick={() => window.print()}>
               Print receipt
             </button>

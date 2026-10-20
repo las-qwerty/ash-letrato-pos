@@ -228,6 +228,7 @@ export const settings: StoreSettings = {
   autoLockMinutes: 5,
   notaryFee: 1,
   productionEnabled: false,
+  receiptWidthMm: 80,
 };
 
 // ─── Enterprise seed data (HR, inventory ledger, production) ─────────────────

@@ -9,8 +9,15 @@ export function Receipt({
   sale: Sale;
   settings: StoreSettings;
 }) {
+  const mm = settings.receiptWidthMm ?? 80;
   return (
-    <div className="receipt-print mx-auto w-72 rounded-lg border border-dashed border-stone-300 bg-[#FDFCF9] p-5 font-mono text-[11px] leading-relaxed text-stone-700 print:border-0">
+    <div
+      className="receipt-print mx-auto rounded-lg border border-dashed border-stone-300 bg-[#FDFCF9] p-5 font-mono text-[11px] leading-relaxed text-stone-700 print:border-0"
+      style={{ width: `${mm}mm` }}
+    >
+      {/* Paper width follows Settings → Receipt — cloned into the print
+          stylesheet by lib/print.ts, so @page comes along for the ride. */}
+      <style>{`@page receipt { size: ${mm}mm auto; margin: 0; }`}</style>
       <div className="text-center">
         <p className="font-display text-base font-semibold tracking-wide text-ink">
           {settings.storeName}

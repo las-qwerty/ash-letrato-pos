@@ -201,6 +201,8 @@ export interface StoreSettings {
   notaryFee: number;
   /** Show the Production module (job tickets, machine counters). */
   productionEnabled: boolean;
+  /** Thermal roll width in mm the receipt is laid out for (58/72/80). */
+  receiptWidthMm: number;
 }
 
 // ─── Inventory movement ledger ────────────────────────────────────────────────

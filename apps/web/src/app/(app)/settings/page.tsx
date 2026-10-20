@@ -146,6 +146,17 @@ export default function SettingsPage() {
 
         {tab === 'receipt' && (
           <div className="card space-y-4 p-5">
+            <Field label="Receipt paper width">
+              <select
+                className="input"
+                value={draft.receiptWidthMm ?? 80}
+                onChange={(e) => set('receiptWidthMm', parseInt(e.target.value) || 80)}
+              >
+                <option value={58}>58 mm — narrow thermal roll</option>
+                <option value={72}>72 mm</option>
+                <option value={80}>80 mm — standard thermal roll</option>
+              </select>
+            </Field>
             <Field label="Receipt footer">
               <textarea
                 className="input min-h-[4rem] resize-none"

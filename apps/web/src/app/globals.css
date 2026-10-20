@@ -52,42 +52,47 @@
   }
 }
 
+/* Print clones live at body level (lib/print.ts) — never shown on screen. */
+.print-clone {
+  display: none;
+}
+
 @media print {
-  /* Receipt printing: show only the receipt, hide the whole app shell. */
-  body * {
-    visibility: hidden;
+  /* Hide the whole app; only the cloned receipt/label prints. */
+  body > *:not(.print-clone) {
+    display: none !important;
   }
-  .receipt-print,
-  .receipt-print *,
-  .print-sheet,
-  .print-sheet * {
-    visibility: visible;
-    /* Thermal heads only darken where stroke coverage is thick — maximum
-       weight + a hairline stroke keeps small text legible on receipt paper. */
+  .print-clone {
+    display: block !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 4mm 2mm !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  .print-clone.receipt-print {
+    page: receipt;
+  }
+  .print-clone.print-sheet {
+    page: label;
+    width: 100mm !important;
+  }
+  /* Thermal heads only darken where stroke coverage is thick — maximum
+     weight + a hairline stroke keeps small text legible on receipt paper. */
+  .print-clone,
+  .print-clone * {
     font-weight: 900 !important;
     color: #000 !important;
     -webkit-text-stroke: 0.3px #000;
     letter-spacing: 0.02em !important;
   }
-  .receipt-print {
-    position: fixed;
-    inset: 0 auto auto 0;
-    margin: 0;
-    border: none;
-    width: 72mm;
-    page: receipt;
-  }
-  .print-sheet {
-    position: fixed;
-    inset: 0 auto auto 0;
-    margin: 0;
-    width: 100mm;
-    page: label;
-  }
 }
 
-/* Named pages declare the paper each artifact wants — 72mm receipt roll,
-   100mm label sheet — so print dialogs and silent printing size correctly. */
+/* Named pages declare the paper each artifact wants — receipt roll width is
+   overridden per-receipt by the Settings → Receipt paper-width control, and
+   100mm is the label sheet — so print dialogs and silent printing size right. */
 @page receipt {
   size: 72mm auto;
   margin: 0;

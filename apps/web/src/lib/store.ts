@@ -953,10 +953,11 @@ export const useStore = create<DataState>()(
     }),
     {
       name: 'simmy-pos',
-      version: 3,
+      version: 4,
       // v1 → v2: rebrand + product/service split. Normalize old installs so
       // stored staff emails and untyped products keep working without a reset.
       // v2 → v3: branch-attributed sales + enterprise entities (ledger, HR).
+      // v3 → v4: receipt paper-width setting.
       migrate: (persisted, version) => {
         const s = persisted as Partial<DataState>;
         if (version < 2 && s) {
@@ -987,6 +988,9 @@ export const useStore = create<DataState>()(
           if (s.settings && s.settings.notaryFee == null) {
             s.settings = { ...s.settings, notaryFee: 1 };
           }
+        }
+        if (s.settings && s.settings.receiptWidthMm == null) {
+          s.settings = { ...s.settings, receiptWidthMm: 80 };
         }
         return s;
       },
