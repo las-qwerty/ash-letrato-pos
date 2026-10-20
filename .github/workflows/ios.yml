@@ -2,6 +2,15 @@ name: iOS build (unsigned .ipa for sideloading)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/web/src/**'
+      - 'apps/web/public/**'
+      - 'apps/web/ios/**'
+      - 'apps/web/capacitor.config.ts'
+      - 'packages/**'
+      - '.github/workflows/ios.yml'
 
 permissions:
   contents: write

@@ -1,0 +1,79 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/web/src/**'
+      - 'apps/web/public/**'
+      - 'apps/web/android/**'
+      - 'apps/web/capacitor.config.ts'
+      - 'packages/**'
+      - '.github/workflows/android.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+      - run: npm run build -w @simmy/web
+
+      - name: Sync Capacitor Android
+        working-directory: apps/web
+        run: npx cap sync android
+
+      - name: Accept SDK licenses + install platform
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" >/dev/null
+
+      # Release signing needs ANDROID_KEYSTORE_BASE64 repo secret (base64 of
+      # ash-letrato-release.keystore). Without it we ship a debug-signed APK —
+      # installable, but a different signature so old installs must uninstall first.
+      - name: Decode release keystore (if configured)
+        working-directory: apps/web/android/app
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > ash-letrato-release.keystore
+            echo "BUILD_VARIANT=Release" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_VARIANT=Debug" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
+        working-directory: apps/web/android
+        run: |
+          chmod +x gradlew
+          ./gradlew "assemble${BUILD_VARIANT}"
+
+      - name: Publish APK to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=$(find apps/web/android/app/build/outputs/apk -name '*.apk' | head -1)
+          cp "$APK" "ASH-LETRATO-POS.apk"
+          gh release create android-latest "ASH-LETRATO-POS.apk" \
+            --title "Android APK" \
+            --notes "Sideload on Android. Web-layer updates arrive over-the-air after install." \
+            --latest=false 2>/dev/null \
+          || gh release upload android-latest "ASH-LETRATO-POS.apk" --clobber

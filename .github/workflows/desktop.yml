@@ -1,0 +1,40 @@
+name: Windows build (Setup.exe via Tauri)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/web/src/**'
+      - 'apps/web/public/**'
+      - 'apps/desktop/**'
+      - 'packages/**'
+      - '.github/workflows/desktop.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: npm ci
+      - run: npm run build -w @simmy/web
+
+      - uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: apps/desktop
+          tagName: desktop-latest
+          releaseName: 'ASH LETRATO POS — Windows'
+          body: 'Run Setup.exe. The shell enables silent printing — receipts go straight to the default printer.'
+          releaseDraft: false
+          prerelease: false
