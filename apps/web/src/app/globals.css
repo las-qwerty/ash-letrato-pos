@@ -72,11 +72,25 @@
     margin: 0;
     border: none;
     width: 72mm;
+    page: receipt;
   }
   .print-sheet {
     position: fixed;
     inset: 0 auto auto 0;
     margin: 0;
     width: 100mm;
+    page: label;
   }
+}
+
+/* Named pages declare the paper each artifact wants — 72mm receipt roll,
+   100mm label sheet — so print dialogs and silent printing size correctly. */
+@page receipt {
+  size: 72mm auto;
+  margin: 0;
+}
+
+@page label {
+  size: 100mm auto;
+  margin: 0;
 }
