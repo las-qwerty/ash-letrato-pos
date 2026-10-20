@@ -5,7 +5,9 @@ import { buildReceiptEscPos } from './escpos';
 import { toast } from './toast';
 
 const CLONE_CLS = 'print-clone';
+const PAGE_CLS = 'print-page';
 const SOURCE_SEL = '.receipt-print, .print-sheet';
+const PX_PER_MM = 96 / 25.4;
 
 /**
  * Prints via a clone appended to <body>. The real receipt lives inside a
@@ -16,15 +18,23 @@ const SOURCE_SEL = '.receipt-print, .print-sheet';
  */
 export function installPrintClone() {
   const onBefore = () => {
-    document.querySelectorAll(`.${CLONE_CLS}`).forEach((n) => n.remove());
+    document.querySelectorAll(`.${CLONE_CLS}, .${PAGE_CLS}`).forEach((n) => n.remove());
     const src = document.querySelector(SOURCE_SEL);
     if (!src) return;
     const clone = src.cloneNode(true) as HTMLElement;
     clone.classList.add(CLONE_CLS);
     document.body.appendChild(clone);
+    if (clone.classList.contains('receipt-print')) {
+      clone.style.display = 'block';
+      const { width, height } = clone.getBoundingClientRect();
+      const page = document.createElement('style');
+      page.className = PAGE_CLS;
+      page.textContent = `@page receipt { size: ${(width / PX_PER_MM).toFixed(2)}mm ${Math.ceil(height / PX_PER_MM) + 1}mm; margin: 0; }`;
+      document.body.appendChild(page);
+    }
   };
   const onAfter = () => {
-    document.querySelectorAll(`.${CLONE_CLS}`).forEach((n) => n.remove());
+    document.querySelectorAll(`.${CLONE_CLS}, .${PAGE_CLS}`).forEach((n) => n.remove());
   };
   window.addEventListener('beforeprint', onBefore);
   window.addEventListener('afterprint', onAfter);

@@ -22,7 +22,7 @@ export function Receipt({
     >
       {/* Paper width follows Settings → Receipt — cloned into the print
           stylesheet by lib/print.ts, so @page comes along for the ride. */}
-      <style>{`@page receipt { size: ${mm}mm auto; margin: 0; }`}</style>
+      <style>{`@page receipt { size: ${mm}mm 297mm; margin: 0; }`}</style>
       <div className="receipt-paper" style={{ width: `${colsFor(mm) * COLUMN_MM}mm` }}>
         {receiptBlocks(sale, settings, branch).map((b, i) => (
           <BlockLine key={i} b={b} />

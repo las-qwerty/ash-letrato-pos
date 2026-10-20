@@ -101,7 +101,7 @@
    overridden per-receipt by the Settings → Receipt paper-width control, and
    100mm is the label sheet — so print dialogs and silent printing size right. */
 @page receipt {
-  size: 72mm auto;
+  size: 80mm 297mm;
   margin: 0;
 }
 
