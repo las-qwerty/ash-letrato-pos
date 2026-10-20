@@ -31,8 +31,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
       - run: npm ci
       - run: npm run build -w @simmy/web
 
@@ -40,10 +38,13 @@ jobs:
         working-directory: apps/web
         run: npx cap sync android
 
+      # ubuntu-latest ships the Android SDK at $ANDROID_HOME — no setup action needed.
       - name: Accept SDK licenses + install platform
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" >/dev/null
+          SDKMANAGER=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
+          [ -z "$SDKMANAGER" ] && SDKMANAGER=sdkmanager
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" >/dev/null || true
 
       # Release signing needs ANDROID_KEYSTORE_BASE64 repo secret (base64 of
       # ash-letrato-release.keystore). Without it we ship a debug-signed APK —
