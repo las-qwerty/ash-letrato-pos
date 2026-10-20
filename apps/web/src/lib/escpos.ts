@@ -7,7 +7,6 @@ const ALIGN_CENTER = [0x1b, 0x61, 0x01];
 const BOLD_ON = [0x1b, 0x45, 0x01];
 const BOLD_OFF = [0x1b, 0x45, 0x00];
 const DOUBLE = [0x1d, 0x21, 0x11]; // 2x width + height
-const DOUBLE_H = [0x1d, 0x21, 0x01]; // 2x height only
 const NORMAL_SIZE = [0x1d, 0x21, 0x00];
 const FEED_CUT = [0x1b, 0x64, 0x04, 0x1d, 0x56, 0x42, 0x00]; // feed 4, partial cut
 
@@ -50,10 +49,10 @@ export function buildReceiptEscPos(
   settings: StoreSettings,
   branch?: Branch,
 ): Uint8Array {
-  const w = colsFor(settings.receiptWidthMm ?? 80);
-  // '#' is a 4-stroke glyph — a full row of it reads as a solid band even
-  // if the printer ignores the bold/size commands below.
-  const divider = '#'.repeat(w);
+  const mm = settings.receiptWidthMm ?? 80;
+  const w = colsFor(mm);
+  // Printable dot-width per paper size (≈203dpi, kept inside the margins).
+  const barBytes = mm >= 80 ? 64 : mm >= 72 ? 56 : 48;
   const out: number[] = [];
 
   const text = (s: string) => {
@@ -64,12 +63,12 @@ export function buildReceiptEscPos(
     text(s);
     out.push(0x0a);
   };
-  // Separators must burn thick — plain-weight lines are invisible on
-  // thermal. Double-height + bold + dense glyphs ≈ a solid rule.
+  // Separators print as a raw raster bar (GS v 0) — solid burned pixels
+  // across the full width, not glyph strokes, so it can't wash out.
   const dividerLine = () => {
-    cmd(...BOLD_ON, ...DOUBLE_H);
-    line(divider);
-    cmd(...NORMAL_SIZE, ...BOLD_OFF);
+    cmd(0x1d, 0x76, 0x30, 0x00, barBytes, 0x00, 0x08, 0x00);
+    for (let i = 0; i < barBytes * 8; i++) out.push(0xff);
+    out.push(0x0a);
   };
 
   cmd(...INIT);
