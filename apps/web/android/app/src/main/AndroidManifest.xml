@@ -35,6 +35,16 @@
         </provider>
     </application>
 
+    <!-- Package visibility so canOpenUrl/openUrl can detect and launch the
+         RawBT ESC/POS print bridge (ru.a402d.rawbtprinter). -->
+    <queries>
+        <package android:name="ru.a402d.rawbtprinter" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="rawbt" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

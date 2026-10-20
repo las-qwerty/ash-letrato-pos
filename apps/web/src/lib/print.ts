@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { AppLauncher } from '@capacitor/app-launcher';
 import type { Sale, StoreSettings } from '@simmy/core';
 import { buildReceiptEscPos } from './escpos';
 
@@ -38,17 +39,40 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+function printToast(msg: string) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText =
+    'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;' +
+    'background:#1d232d;color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;' +
+    'box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:90vw;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+
 /**
  * On Android builds, hand the receipt to RawBT as raw ESC/POS — the paired
- * thermal printer prints it silently, no browser print dialog. The WebView
- * intercepts the rawbt: scheme and launches it as an ACTION_VIEW intent.
- * Falls back to window.print() everywhere else (web, iOS). Requires the
- * RawBT app installed and the printer selected inside it.
+ * thermal printer prints it silently, no browser print dialog. Detects a
+ * missing RawBT install and warns instead of failing silently. Falls back
+ * to window.print() everywhere else (web, iOS).
  */
-export function printReceipt(sale: Sale, settings: StoreSettings): void {
+export async function printReceipt(sale: Sale, settings: StoreSettings): Promise<void> {
   if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-    window.location.href = `rawbt:base64,${toBase64(buildReceiptEscPos(sale, settings))}`;
-    return;
+    const url = `rawbt:base64,${toBase64(buildReceiptEscPos(sale, settings))}`;
+    try {
+      const { value } = await AppLauncher.canOpenUrl({ url });
+      if (value) {
+        await AppLauncher.openUrl({ url });
+      } else {
+        printToast('Receipt printing needs the free “RawBT” app from Play Store — install it, then print again.');
+      }
+      return;
+    } catch {
+      // AppLauncher native side missing in this build — the WebView still
+      // forwards the rawbt: scheme as an ACTION_VIEW intent.
+      window.location.href = url;
+      return;
+    }
   }
   window.print();
 }
