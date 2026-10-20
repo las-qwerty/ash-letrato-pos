@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { toast } from './toast';
 
 /** Stable URLs — CI republishes both files on the `ota` branch (raw = no redirects). */
 const MANIFEST_URL =
@@ -30,17 +31,6 @@ export function getOtaStatus(): OtaStatus {
 function setStatus(msg: string) {
   localStorage.setItem(STATUS_KEY, msg);
   localStorage.setItem(`${STATUS_KEY}-at`, new Date().toISOString());
-}
-
-function toast(msg: string) {
-  const el = document.createElement('div');
-  el.textContent = msg;
-  el.style.cssText =
-    'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;' +
-    'background:#1d232d;color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;' +
-    'box-shadow:0 8px 24px rgba(0,0,0,.4);';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 6000);
 }
 
 /**

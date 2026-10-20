@@ -30,9 +30,14 @@ jobs:
       - run: npm ci
       - run: npm run build -w @simmy/web
 
+      # Signs updater artifacts + emits latest.json into the release — the
+      # desktop app self-updates from it on launch. Needs repo secret
+      # TAURI_SIGNING_PRIVATE_KEY (minisign private key; no password).
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           tagName: desktop-latest
@@ -40,6 +45,7 @@ jobs:
           body: 'Run Setup.exe. The shell enables silent printing — receipts go straight to the default printer.'
           releaseDraft: false
           prerelease: false
+          updaterJsonPreferNsis: true
 
       # Stable filename for the marketing site — Tauri's artifact name embeds
       # the version, so also upload a fixed-name copy of the NSIS installer.

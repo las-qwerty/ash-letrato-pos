@@ -19,6 +19,8 @@
     "@capgo/capacitor-updater": "^8.53.0",
     "@simmy/api-client": "*",
     "@simmy/core": "*",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "clsx": "^2.1.1",
     "next": "^15.1.6",
     "react": "^19.0.0",

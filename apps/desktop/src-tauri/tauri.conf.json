@@ -21,9 +21,21 @@
       "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost tauri:; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJDMDVERDZCRkJGMkE1RDgKUldUWXBmTDdhOTBGTENDb3JwM2dMdC9rY3crUmdFZXMvbUNHaHZ4d1JUWEJJSXpLckZUSGVyTlIK",
+      "endpoints": [
+        "https://github.com/las-qwerty/ash-letrato-pos/releases/download/desktop-latest/latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

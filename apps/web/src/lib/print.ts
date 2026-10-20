@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { AppLauncher } from '@capacitor/app-launcher';
 import type { Sale, StoreSettings } from '@simmy/core';
 import { buildReceiptEscPos } from './escpos';
+import { toast } from './toast';
 
 const CLONE_CLS = 'print-clone';
 const SOURCE_SEL = '.receipt-print, .print-sheet';
@@ -39,17 +40,6 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-function printToast(msg: string) {
-  const el = document.createElement('div');
-  el.textContent = msg;
-  el.style.cssText =
-    'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;' +
-    'background:#1d232d;color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;' +
-    'box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:90vw;text-align:center;';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 6000);
-}
-
 /**
  * On Android builds, hand the receipt to RawBT as raw ESC/POS — the paired
  * thermal printer prints it silently, no browser print dialog. Detects a
@@ -64,7 +54,7 @@ export async function printReceipt(sale: Sale, settings: StoreSettings): Promise
       if (value) {
         await AppLauncher.openUrl({ url });
       } else {
-        printToast('Receipt printing needs the free “RawBT” app from Play Store — install it, then print again.');
+        toast('Receipt printing needs the free “RawBT” app from Play Store — install it, then print again.');
       }
       return;
     } catch {
