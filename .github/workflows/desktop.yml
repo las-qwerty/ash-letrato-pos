@@ -40,3 +40,13 @@ jobs:
           body: 'Run Setup.exe. The shell enables silent printing — receipts go straight to the default printer.'
           releaseDraft: false
           prerelease: false
+
+      # Stable filename for the marketing site — Tauri's artifact name embeds
+      # the version, so also upload a fixed-name copy of the NSIS installer.
+      - name: Publish fixed-name installer copy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $exe = Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          Copy-Item $exe.FullName "ash-letrato-pos-setup.exe"
+          gh release upload desktop-latest ash-letrato-pos-setup.exe --clobber
