@@ -336,8 +336,8 @@ function UpdatePanel() {
     <div className="border-t border-stone-200 pt-4">
       <p className="text-sm font-medium">App updates</p>
       <p className="mt-1 text-xs leading-relaxed text-stone-500">
-        This device checks for updates on launch and in the background. Downloaded updates apply the
-        next time the app is fully closed and reopened.
+        This device checks for updates on launch and in the background. Downloaded updates apply
+        automatically — the app reloads itself a few seconds after the download finishes.
       </p>
       <dl className="mt-3 space-y-1 text-xs text-stone-600">
         <div className="flex justify-between gap-4">

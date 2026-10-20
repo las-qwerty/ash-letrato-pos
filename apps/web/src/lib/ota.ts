@@ -44,8 +44,10 @@ function toast(msg: string) {
 }
 
 /**
- * One check cycle: fetch manifest, download newer bundle, stage for next
- * cold start. Returns a status string (also persisted for the Settings UI).
+ * One check cycle: fetch manifest, download newer bundle, then swap into it
+ * immediately — set() reloads the app and destroys the JS context, so all
+ * state must be persisted before that call. Returns a status string (also
+ * persisted for the Settings UI).
  */
 export async function checkForUpdate(): Promise<string> {
   try {
@@ -66,10 +68,11 @@ export async function checkForUpdate(): Promise<string> {
 
     setStatus(`downloading ${version}…`);
     const bundle = await CapacitorUpdater.download({ url, version });
-    await CapacitorUpdater.next({ id: bundle.id });
     localStorage.setItem(VERSION_KEY, version);
-    setStatus(`update ${version} ready — restart app to apply`);
-    toast('Update downloaded — restart the app to apply it');
+    setStatus(`update ${version} installed — reloading`);
+    toast('Update installed — reloading…');
+    await new Promise((r) => setTimeout(r, 2500));
+    await CapacitorUpdater.set({ id: bundle.id });
     return 'downloaded';
   } catch (e) {
     setStatus(`failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -79,14 +82,17 @@ export async function checkForUpdate(): Promise<string> {
 
 /**
  * Call once at app start. Confirms the currently-running bundle is healthy
- * (otherwise the plugin rolls back to the built-in bundle), then runs an
- * update check — and re-checks whenever the app returns to the foreground.
- * No-ops in browsers/PWA and silently when offline.
+ * (otherwise the plugin rolls back to the built-in bundle), records which
+ * bundle actually booted — so a rollback can't masquerade as "up to date" —
+ * then runs an update check and re-checks whenever the app returns to the
+ * foreground. No-ops in browsers/PWA and silently when offline.
  */
 export async function initOtaUpdates() {
   if (!Capacitor.isNativePlatform()) return;
   try {
     await CapacitorUpdater.notifyAppReady();
+    const { bundle } = await CapacitorUpdater.current();
+    if (bundle?.version) localStorage.setItem(VERSION_KEY, bundle.version);
   } catch {
     /* plugin only exists in native builds */
   }
