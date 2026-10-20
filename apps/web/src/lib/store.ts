@@ -995,12 +995,14 @@ export const useStore = create<DataState>()(
         // Refresh default footers to the current wording — leave custom text alone.
         if (
           s.settings &&
-          (s.settings.receiptFooter === 'Thank you! This serves as your sales invoice.' ||
-            s.settings.receiptFooter === 'Thank you! This does not serve as invoice.')
+          ['Thank you! This serves as your sales invoice.',
+            'Thank you! This does not serve as invoice.',
+            'Thank you! This does not serve as an invoice',
+          ].includes(s.settings.receiptFooter)
         ) {
           s.settings = {
             ...s.settings,
-            receiptFooter: 'Thank you! This does not serve as an invoice',
+            receiptFooter: 'THIS DOES NOT SERVE AS AN INVOICE\nThank you!',
           };
         }
         return s;

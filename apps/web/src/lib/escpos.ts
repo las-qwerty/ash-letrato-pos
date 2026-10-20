@@ -121,10 +121,11 @@ export function buildReceiptEscPos(
     line(`Loyalty points earned: ${sale.pointsEarned}`);
   }
 
-  // Footer
+  // Footer — one physical line per \n in the configured text
   dividerLine();
-  cmd(...ALIGN_CENTER);
-  line(settings.receiptFooter);
+  cmd(...ALIGN_CENTER, ...BOLD_ON);
+  for (const l of settings.receiptFooter.split('\n')) line(l);
+  cmd(...BOLD_OFF);
   out.push(0x0a, 0x0a);
 
   cmd(...FEED_CUT);
