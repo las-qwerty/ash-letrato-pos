@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodeCode128, hashPin, isValidEan13 } from './index';
+import { encodeCode128, isValidEan13 } from './index';
 
 describe('encodeCode128', () => {
   it('encodes a SKU: start + chars + checksum + stop', () => {
@@ -31,17 +31,5 @@ describe('isValidEan13', () => {
     expect(isValidEan13('4006381333932')).toBe(false);
     expect(isValidEan13('12345')).toBe(false);
     expect(isValidEan13('abcdefghijklm')).toBe(false);
-  });
-});
-
-describe('hashPin', () => {
-  it('is deterministic and salted (same PIN → same hash, differs from raw)', async () => {
-    const a = await hashPin('2468');
-    const b = await hashPin('2468');
-    const c = await hashPin('2469');
-    expect(a).toBe(b);
-    expect(a).not.toBe(c);
-    expect(a).not.toContain('2468');
-    expect(a.length).toBeGreaterThanOrEqual(32);
   });
 });

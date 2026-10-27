@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { hashPin } from './pin';
+import { checkPin, hashPin } from './pin';
 import {
   computePayslip,
   materializeStock,
@@ -239,7 +239,16 @@ export const useStore = create<DataState>()(
           });
           return ok;
         };
-        if (user.pinHash) return note((await hashPin(pin)) === user.pinHash);
+        if (user.pinHash) {
+          const { ok, stale } = await checkPin(pin, user.pinHash);
+          if (ok && stale) {
+            const pinHash = await hashPin(pin);
+            set((s) => ({
+              users: s.users.map((u) => (u.id === userId ? { ...u, pinHash } : u)),
+            }));
+          }
+          return note(ok);
+        }
         // First verify of a seeded plaintext PIN: upgrade to a hash on success.
         if (user.pin === pin) {
           const pinHash = await hashPin(pin);

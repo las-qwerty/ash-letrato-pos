@@ -1,1 +1,1 @@
-export { hashPin } from '@simmy/core';
+export { checkPin, hashPin } from '@simmy/core';
