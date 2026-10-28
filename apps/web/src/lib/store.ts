@@ -990,6 +990,7 @@ export const useStore = create<DataState>()(
             products,
             employeeProfiles: extra.employeeProfiles,
             categories: d.categories as Category[],
+            sales: d.sales as Sale[],
           });
           extra.employeeProfiles = up.employeeProfiles;
           const cur = get().currentUser;
@@ -1000,7 +1001,7 @@ export const useStore = create<DataState>()(
             categories: up.categories ?? (d.categories as Category[]),
             materials: up.materials,
             customers: d.customers as Customer[],
-            sales: d.sales as Sale[],
+            sales: up.sales,
             promotions: d.promotions as Promotion[],
             // Merge over seed defaults so a partial/old settings object can't
             // leave required keys (notaryFee, tax rates…) undefined downstream.
@@ -1079,11 +1080,13 @@ export const useStore = create<DataState>()(
             products: (s.products ?? []) as Product[],
             employeeProfiles: (s.employeeProfiles ?? []) as EmployeeProfile[],
             categories: (s.categories ?? []) as Category[],
+            sales: (s.sales ?? []) as Sale[],
           });
           s.materials = up.materials;
           s.products = up.products;
           s.employeeProfiles = up.employeeProfiles;
           if (up.categories) s.categories = up.categories;
+          s.sales = up.sales;
           s.staffRewards = s.staffRewards ?? [];
         }
         return s;

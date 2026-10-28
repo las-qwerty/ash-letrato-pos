@@ -50,7 +50,6 @@ const DEMO_MATERIAL_IDS = new Set([
   'mat-tarp', 'mat-vinyl', 'mat-ink-c', 'mat-ink-m', 'mat-ink-y', 'mat-ink-k', 'mat-photo', 'mat-board',
   'mat-pvc', 'mat-ncr', 'mat-card', 'mat-lam', 'mat-frame', 'mat-a4', 'mat-short', 'mat-long',
 ]);
-
 const DEMO_CATEGORY_IDS = new Set([
   'cat-print', 'cat-doc', 'cat-photo', 'cat-card', 'cat-sticker', 'cat-biz', 'cat-notary', 'cat-merch',
 ]);
@@ -61,7 +60,8 @@ const jobRoleFor = (role: User['role']): NonNullable<EmployeeProfile['jobRole']>
 /**
  * Bring saved collections up to the current shape. Safe to run repeatedly.
  * A saved demo catalog is replaced by the owner's price list; anything the owner
- * added in the app is kept. Sales history is never touched.
+ * added in the app is kept. Sales keep what they recorded: pre-v5 lines get their
+ * exact usage written from the old recipes before the catalog changes.
  */
 export function upgradeCollections(input: {
   users: User[];
@@ -69,6 +69,7 @@ export function upgradeCollections(input: {
   products: Product[];
   employeeProfiles: EmployeeProfile[];
   categories: Category[];
+  sales: Sale[];
 }) {
   const employeeProfiles = input.employeeProfiles.map((p) => {
     if (p.jobRole) return p;
@@ -76,12 +77,23 @@ export function upgradeCollections(input: {
     return user ? { ...p, jobRole: jobRoleFor(user.role) } : p;
   });
   if (!input.products.some((p) => DEMO_PRODUCT_IDS.has(p.id))) {
-    return { categories: null, materials: input.materials, products: input.products, employeeProfiles };
+    return { categories: null, materials: input.materials, products: input.products, employeeProfiles, sales: input.sales };
   }
+  const sales = input.sales.map((sale) => ({
+    ...sale,
+    lines: sale.lines.map((line) => {
+      if (line.consumed || !line.productId) return line;
+      const product = input.products.find((p) => p.id === line.productId);
+      return product
+        ? { ...line, consumed: product.consumes.map((c) => ({ materialId: c.materialId, qty: c.qty * line.qty })) }
+        : line;
+    }),
+  }));
   return {
     categories: [...catalogCategories, ...input.categories.filter((c) => !DEMO_CATEGORY_IDS.has(c.id))],
     materials: [...catalogMaterials, ...input.materials.filter((m) => !DEMO_MATERIAL_IDS.has(m.id))],
     products: [...catalogProducts, ...input.products.filter((p) => !DEMO_PRODUCT_IDS.has(p.id))],
     employeeProfiles,
+    sales,
   };
 }
