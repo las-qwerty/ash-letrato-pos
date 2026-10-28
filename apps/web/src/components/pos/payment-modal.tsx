@@ -3,14 +3,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   cartFees,
+  consumptionFor,
   lineTotal,
   missingHandlers,
+  paperSheets,
   peso,
   pointsEarned,
   pointsToPeso,
   round2,
   totals,
+  type AppliedDiscount,
   type PaymentMethod,
+  type PrintEntry,
   type Sale,
 } from '@simmy/core';
 import { useCart } from '@/lib/cart';
@@ -45,6 +49,7 @@ export function PaymentModal({
   const currentUser = useStore((s) => s.currentUser);
   const users = useStore((s) => s.users);
   const recordSale = useStore((s) => s.recordSale);
+  const recordPrint = useStore((s) => s.recordPrint);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [tenderedStr, setTenderedStr] = useState('');
   const [done, setDone] = useState<Sale | null>(null);
@@ -64,11 +69,19 @@ export function PaymentModal({
   // Android this fires the RawBT intent instead, printing silently.
   const doneBranch = done ? branches.find((b) => b.id === done.branchId) : undefined;
 
-  useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => void printReceipt(done, settings, doneBranch), 250);
-    return () => clearTimeout(t);
-  }, [done, settings, doneBranch]);
+  // Every printed copy is logged with the staff member who printed it, and the
+  // receipt shows that name. Reprints from the Transactions page use the same path.
+  const printCopy = (sale: Sale) => {
+    const entry: PrintEntry = {
+      byId: currentUser?.id,
+      byName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '—',
+      at: new Date().toISOString(),
+    };
+    const updated: Sale = { ...sale, printLog: [...(sale.printLog ?? []), entry] };
+    recordPrint(sale.id, entry);
+    setDone(updated);
+    void printReceipt(updated, settings, branches.find((b) => b.id === updated.branchId));
+  };
 
   const tendered =
     method === 'cash' ? Math.min(parseFloat(tenderedStr) || 0, 999_999) : total;
@@ -108,6 +121,24 @@ export function PaymentModal({
         const u = users.find((x) => x.id === id);
         return u ? `${u.firstName} ${u.lastName}` : undefined;
       };
+      const d = cart.discount;
+      const discount: AppliedDiscount | undefined =
+        d.kind === 'none'
+          ? undefined
+          : d.kind === 'senior' || d.kind === 'pwd'
+            ? {
+                kind: d.kind,
+                label: `${d.kind === 'senior' ? 'Senior citizen' : 'PWD'} −${settings.seniorPwdDiscountPct}% (VAT-exempt)`,
+                pct: settings.seniorPwdDiscountPct,
+                amount: t.saleDiscount,
+                idNo: cart.customer?.discountId,
+              }
+            : {
+                kind: d.kind,
+                label: d.label ?? (d.kind === 'promo' ? 'Promo' : 'Manual discount'),
+                pct: d.pct,
+                amount: t.saleDiscount,
+              };
       const sale: Sale = {
         id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         invoiceNumber: `INV-2026-${String(maxSuffix + 1).padStart(4, '0')}`,
@@ -119,6 +150,7 @@ export function PaymentModal({
         customerName: cart.customer
           ? `${cart.customer.firstName} ${cart.customer.lastName}`
           : undefined,
+        customerId: cart.customer?.id,
         lines: cart.lines.map((l) => ({
           productId: l.productId,
           name: l.area
@@ -129,7 +161,10 @@ export function PaymentModal({
           total: lineTotal(l),
           handlerId: l.handlerId,
           handlerName: handlerName(l.handlerId),
+          paper: l.paper && { ...l.paper, sheets: paperSheets(l.paper.pages, l.paper.copies, l.paper.sides) },
+          consumed: consumptionFor(l, products.find((p) => p.id === l.productId)),
         })),
+        discount,
         subtotal: t.subtotal,
         discountTotal: t.lineDiscounts + t.saleDiscount + pointsToPeso(cart.redeemPoints, settings),
         fees,
@@ -140,10 +175,12 @@ export function PaymentModal({
         amountTendered: tendered,
         change: Math.max(0, change),
         pointsEarned: cart.customer ? pointsEarned(total, settings) : 0,
+        pointsRedeemed: cart.redeemPoints || undefined,
         status: 'completed',
       };
       recordSale(sale, cart.discount.promoId);
       setDone(sale);
+      setTimeout(() => printCopy(sale), 250);
     } catch {
       setPayError('Could not save the sale — please try again.');
     }
@@ -164,7 +201,7 @@ export function PaymentModal({
             Prints on {settings.receiptWidthMm ?? 80} mm paper — change in Settings → Receipt
           </p>
           <div className="mt-3 flex gap-2">
-            <button className="btn-secondary flex-1" onClick={() => void printReceipt(done, settings, doneBranch)}>
+            <button className="btn-secondary flex-1" onClick={() => printCopy(done)}>
               Print receipt
             </button>
             <button className="btn-primary flex-1" onClick={finish}>

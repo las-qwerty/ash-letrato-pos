@@ -31,7 +31,7 @@ export const useCart = create<CartState>((set) => ({
       // merge fixed-price lines for the same product
       if (!line.area) {
         const existing = s.lines.find(
-          (l) => l.productId === line.productId && !l.area && !l.discountPct,
+          (l) => l.productId === line.productId && !l.area && !l.discountPct && !l.paper && !line.paper,
         );
         if (existing) {
           return {

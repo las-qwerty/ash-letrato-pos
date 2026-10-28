@@ -1,53 +1,38 @@
-import type { Role } from '@simmy/core';
+import { accessibleModules, type ModuleKey, type Role, type User } from '@simmy/core';
 
-/**
- * Single source of truth for role-based access.
- * The sidebar hides what a role can't use; the app layout enforces the same
- * matrix so a typed URL can't bypass it.
- */
-export const ROLE_NAV: Record<Role, string[]> = {
-  super_admin: [
-    '/pos',
-    '/dashboard',
-    '/sales',
-    '/products',
-    '/services',
-    '/production',
-    '/inventory',
-    '/customers',
-    '/discounts',
-    '/promotions',
-    '/reports',
-    '/branches',
-    '/users',
-    '/hr',
-    '/settings',
-  ],
-  // Runs a branch end-to-end but can't touch staff accounts, payroll, or store config.
-  manager: [
-    '/pos',
-    '/dashboard',
-    '/sales',
-    '/products',
-    '/services',
-    '/production',
-    '/inventory',
-    '/customers',
-    '/discounts',
-    '/promotions',
-    '/reports',
-  ],
-  cashier: ['/pos', '/sales', '/customers'],
-  handler: ['/pos', '/production'],
+/** Where each module lives. The sidebar and the route guard both read this. */
+export const MODULE_ROUTES: Record<ModuleKey, string> = {
+  pos: '/pos',
+  dashboard: '/dashboard',
+  sales: '/sales',
+  products: '/products',
+  services: '/services',
+  production: '/production',
+  inventory: '/inventory',
+  customers: '/customers',
+  discounts: '/discounts',
+  promotions: '/promotions',
+  reports: '/reports',
+  staff_reports: '/staff-reports',
+  branches: '/branches',
+  users: '/users',
+  hr: '/hr',
+  settings: '/settings',
 };
 
-export function canAccess(role: Role | undefined, pathname: string): boolean {
-  const allowed = ROLE_NAV[role ?? 'cashier'] ?? [];
-  return allowed.some((h) => pathname === h || pathname.startsWith(`${h}/`));
+type AccessUser = Pick<User, 'role' | 'canAuthorizeVoids' | 'permissions'> | null | undefined;
+
+/** Route guard: a typed URL is allowed only for a module the user holds. */
+export function canAccess(user: AccessUser, pathname: string): boolean {
+  return accessibleModules(user).some((m) => {
+    const route = MODULE_ROUTES[m];
+    return pathname === route || pathname.startsWith(`${route}/`);
+  });
 }
 
-export function defaultRoute(role: Role | undefined): string {
-  return (ROLE_NAV[role ?? 'cashier'] ?? ['/pos'])[0] ?? '/pos';
+export function defaultRoute(user: AccessUser): string {
+  const first = accessibleModules(user)[0];
+  return first ? MODULE_ROUTES[first] : '/pos';
 }
 
 /** super_admin sees all branches' data; everyone else is pinned to their own. */

@@ -12,7 +12,7 @@ export const ProductCard = memo(function ProductCard({
   product: Product;
   onAdd: (p: Product) => void;
 }) {
-  const out = product.pricing === 'fixed' && (product.stockQty ?? 0) <= 0;
+  const out = product.pricing === 'fixed' && product.stockQty != null && product.stockQty <= 0;
 
   return (
     <button
@@ -61,7 +61,7 @@ export const ProductCard = memo(function ProductCard({
               out ? 'text-clay' : 'text-stone-400',
             )}
           >
-            {out ? 'Sold out' : `${product.stockQty} left`}
+            {out ? 'Sold out' : product.stockQty != null ? `${product.stockQty} left` : ''}
           </span>
         )}
       </span>

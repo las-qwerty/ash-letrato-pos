@@ -20,6 +20,8 @@ export default function SalesPage() {
   const settings = useStore((s) => s.settings);
   const users = useStore((s) => s.users);
   const branches = useStore((s) => s.branches);
+  const currentUser = useStore((s) => s.currentUser);
+  const recordPrint = useStore((s) => s.recordPrint);
   const voidSale = useStore((s) => s.voidSale);
   const refundSale = useStore((s) => s.refundSale);
   const scope = useBranchScope();
@@ -158,9 +160,17 @@ export default function SalesPage() {
             <Receipt sale={viewing} settings={settings} branch={branches.find((b) => b.id === viewing.branchId)} />
             <button
               className="btn-secondary mt-4 w-full"
-              onClick={() =>
-                void printReceipt(viewing, settings, branches.find((b) => b.id === viewing.branchId))
-              }
+              onClick={() => {
+                const entry = {
+                  byId: currentUser?.id,
+                  byName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '—',
+                  at: new Date().toISOString(),
+                };
+                const updated = { ...viewing, printLog: [...(viewing.printLog ?? []), entry] };
+                recordPrint(viewing.id, entry);
+                setViewing(updated);
+                void printReceipt(updated, settings, branches.find((b) => b.id === viewing.branchId));
+              }}
             >
               Print
             </button>

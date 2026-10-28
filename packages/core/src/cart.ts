@@ -39,6 +39,40 @@ export function makeLine(
   };
 }
 
+/**
+ * A print/copy or fixed-format document line with its paper choice. Per-page
+ * services bill printed pages (a back-to-back sheet is two pages at half the
+ * sheet price). Fixed-format documents bill per set and use sheetsPerUnit sheets.
+ */
+export function makePaperLine(
+  product: Product,
+  paper: { materialId: string; pages: number; copies: number; label: string },
+  opts: { handlerId?: string } = {},
+): CartLine {
+  const copies = Math.max(1, Math.floor(paper.copies));
+  if (product.pagesPerUnit) {
+    const pages = Math.max(1, Math.floor(paper.pages));
+    return {
+      id: nextLineId(),
+      productId: product.id,
+      name: paper.label,
+      unitPrice: product.price / product.pagesPerUnit,
+      qty: pages * copies,
+      handlerId: opts.handlerId,
+      paper: { materialId: paper.materialId, sides: product.printSides ?? 'single', pages, copies },
+    };
+  }
+  return {
+    id: nextLineId(),
+    productId: product.id,
+    name: paper.label,
+    unitPrice: product.price,
+    qty: copies,
+    handlerId: opts.handlerId,
+    paper: { materialId: paper.materialId, sides: 'single', pages: product.sheetsPerUnit ?? 1, copies },
+  };
+}
+
 export function lineTotal(line: CartLine): number {
   const base = line.unitPrice * line.qty;
   const pct = line.discountPct ?? 0;

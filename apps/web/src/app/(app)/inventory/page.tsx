@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { fmtTime, peso, stockAt, type Material, type MovementKind } from '@simmy/core';
+import { fmtTime, formatSheets, hasPermission, peso, stockAt, type Branch, type Material, type MovementKind } from '@simmy/core';
 import { Badge, EmptyState, Field, Modal, PageHeader } from '@/components/ui';
 import { IconAlert, IconBox, IconDownload, IconSearch } from '@/components/icons';
 import { Pagination } from '@/components/pagination';
@@ -21,6 +21,8 @@ const kindTone: Record<MovementKind, 'pine' | 'brass' | 'clay' | 'stone'> = {
   transfer_in: 'brass',
   adjustment: 'brass',
   waste: 'clay',
+  damaged: 'clay',
+  missing: 'clay',
   count_correction: 'brass',
   void_reversal: 'pine',
 };
@@ -33,9 +35,63 @@ const kindLabel: Record<MovementKind, string> = {
   transfer_in: 'transfer in',
   adjustment: 'adjustment',
   waste: 'waste',
+  damaged: 'damaged',
+  missing: 'missing',
   count_correction: 'count fix',
   void_reversal: 'void reversal',
 };
+
+const LOSS_KIND: Record<string, 'damaged' | 'waste' | 'missing'> = { damage: 'damaged', waste: 'waste', missing: 'missing' };
+const REASON_LABEL: Record<string, string> = {
+  damage: 'Damaged',
+  waste: 'Wasted',
+  missing: 'Missing',
+  count: 'Stock count correction',
+  other: 'Other',
+};
+
+function PaperPanel({ materials, branches, mainBranch }: { materials: Material[]; branches: Branch[]; mainBranch: string }) {
+  const papers = materials.filter((m) => m.unit === 'sheet' && m.packUnit === 'ream');
+  if (papers.length === 0) return null;
+  return (
+    <div className="card mb-4 overflow-x-auto">
+      <div className="border-b border-stone-200 px-4 py-3">
+        <p className="font-medium">Paper on hand</p>
+        <p className="text-xs text-stone-500">
+          Reams and loose sheets at each branch. A red figure means more sheets were used than were ever counted in.
+        </p>
+      </div>
+      <table className="w-full">
+        <thead className="border-b border-stone-200 bg-paper/60">
+          <tr>
+            <th className="th">Paper size</th>
+            {branches.map((b) => (
+              <th key={b.id} className="th">{b.name}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {papers.map((m) => (
+            <tr key={m.id} className="border-b border-stone-100 last:border-0">
+              <td className="td font-medium">{m.name}</td>
+              {branches.map((b) => {
+                const n = stockAt(m, b.id, mainBranch);
+                return (
+                  <td
+                    key={b.id}
+                    className={clsx('td tabular-nums', n < 0 ? 'font-medium text-clay' : n <= m.minStockLevel ? 'text-brass-700' : '')}
+                  >
+                    {formatSheets(n, m.unitsPerPack, m.packUnit)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function InventoryPage() {
   const materials = useStore((s) => s.materials);
@@ -69,6 +125,7 @@ export default function InventoryPage() {
 
   const mainBranch = branches[0]?.id ?? '';
   const viewBranch = branchId === 'all' ? mainBranch : branchId;
+  const canAdjust = hasPermission(currentUser, 'stock_adjust');
   const actor = currentUser
     ? {
         employeeId: currentUser.id,
@@ -120,14 +177,10 @@ export default function InventoryPage() {
     if (!n) return;
     const act = actor ? { ...actor, branchId: viewBranch } : undefined;
     if (action.kind === 'restock') restockMaterial(action.material.id, Math.abs(n), act);
-    else
-      adjustMaterial(
-        action.material.id,
-        n,
-        reason,
-        act,
-        reason === 'damage' || reason === 'waste' ? 'waste' : 'adjustment',
-      );
+    else {
+      const loss = LOSS_KIND[reason];
+      adjustMaterial(action.material.id, loss ? -Math.abs(n) : n, REASON_LABEL[reason] ?? reason, act, loss ?? 'adjustment');
+    }
     setAction(null);
     setQty('');
     setReason('');
@@ -292,6 +345,7 @@ export default function InventoryPage() {
         )}
       </div>
 
+      {tab === 'stock' && <PaperPanel materials={materials} branches={branches} mainBranch={mainBranch} />}
       {tab === 'stock' ? (
         <div className="card overflow-x-auto">
           <table className="w-full">
@@ -352,12 +406,14 @@ export default function InventoryPage() {
                         >
                           Restock
                         </button>
-                        <button
-                          className="btn-ghost !px-2 !py-1 text-xs"
-                          onClick={() => setAction({ kind: 'adjust', material: m })}
-                        >
-                          Adjust
-                        </button>
+                        {canAdjust && (
+                          <button
+                            className="btn-ghost !px-2 !py-1 text-xs"
+                            onClick={() => setAction({ kind: 'adjust', material: m })}
+                          >
+                            Adjust
+                          </button>
+                        )}
                         <button
                           className="btn-ghost !px-2 !py-1 text-xs"
                           onClick={() => { setTrError(null); setTrTo(''); setTrQty(''); setTransferOpen(m); }}
@@ -426,7 +482,7 @@ export default function InventoryPage() {
             Currently <strong>{action ? onHand(action.material) : ''} {action?.material.unit}</strong> on hand
             at <strong>{branchName(viewBranch)}</strong>
           </p>
-          <Field label={action?.kind === 'restock' ? 'Quantity received' : 'Adjustment (+ / −)'}>
+          <Field label={action?.kind === 'restock' ? 'Quantity received' : LOSS_KIND[reason] ? 'Quantity lost' : 'Adjustment (+ / −)'}>
             <input
               className="input text-center text-lg"
               type="number"
@@ -442,7 +498,8 @@ export default function InventoryPage() {
               <select className="input" required value={reason} onChange={(e) => setReason(e.target.value)}>
                 <option value="">Select…</option>
                 <option value="damage">Damaged</option>
-                <option value="waste">Production waste</option>
+                <option value="waste">Wasted</option>
+                <option value="missing">Missing</option>
                 <option value="count">Stock count correction</option>
                 <option value="other">Other</option>
               </select>

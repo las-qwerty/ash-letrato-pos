@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useBranchScope, useStore } from '@/lib/store';
-import { ROLE_NAV, isGlobalRole } from '@/lib/roles';
-import { initials } from '@simmy/core';
+import { MODULE_ROUTES, isGlobalRole } from '@/lib/roles';
+import { accessibleModules, initials } from '@simmy/core';
 import {
   IconBox,
   IconBuilding,
@@ -40,14 +40,13 @@ const nav = [
   { href: '/discounts', label: 'Discounts', icon: IconPercent },
   { href: '/promotions', label: 'Promotions', icon: IconTag },
   { href: '/reports', label: 'Reports', icon: IconChart },
+  { href: '/staff-reports', label: 'Staff Reports', icon: IconChart },
   { href: '/branches', label: 'Branches', icon: IconBuilding },
   { href: '/users', label: 'Staff', icon: IconShield },
   { href: '/hr', label: 'HR & Payroll', icon: IconUsers },
   { href: '/settings', label: 'Settings', icon: IconGear },
 ];
 
-/** Which routes each role may open — the same matrix the layout guard enforces. */
-const roleNav = ROLE_NAV as Record<string, string[]>;
 
 const COLLAPSED_KEY = 'nav-collapsed';
 
@@ -62,6 +61,7 @@ export function Sidebar() {
   const setViewBranch = useStore((s) => s.setViewBranch);
   const scope = useBranchScope();
   const isGlobal = isGlobalRole(user?.role);
+  const allowedRoutes = new Set(accessibleModules(user).map((m) => MODULE_ROUTES[m]));
   const scopeName =
     scope === 'all' ? null : (branches.find((b) => b.id === scope)?.name ?? null);
 
@@ -142,7 +142,7 @@ export function Sidebar() {
           {nav
             .filter(
               (n) =>
-                (roleNav[user?.role ?? 'cashier'] ?? []).includes(n.href) &&
+                allowedRoutes.has(n.href) &&
                 (n.href !== '/production' || settings.productionEnabled),
             )
             .map(({ href, label, icon: Icon }) => {

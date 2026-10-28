@@ -22,8 +22,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     if (!user) router.replace('/login');
     else if (locked) router.replace('/lock');
-    else if (!canAccess(user.role, pathname) || moduleBlocked)
-      router.replace(defaultRoute(user.role));
+    else if (!canAccess(user, pathname) || moduleBlocked)
+      router.replace(defaultRoute(user));
   }, [ready, user, locked, pathname, router, moduleBlocked]);
 
   // Auto-lock the till after N idle minutes (shared-device safety).
@@ -47,7 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [ready, user, locked, autoLockMinutes, router]);
 
-  if (!ready || !user || locked || !canAccess(user.role, pathname) || moduleBlocked) {
+  if (!ready || !user || locked || !canAccess(user, pathname) || moduleBlocked) {
     return (
       <div className="flex h-screen items-center justify-center bg-paper">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-pine-200 border-t-pine-700" />

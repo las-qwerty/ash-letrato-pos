@@ -43,12 +43,17 @@ export function receiptBlocks(sale: Sale, settings: StoreSettings, branch?: Bran
     text(settings.addressLine2, { center: true }),
     text(`TIN ${settings.tin} - ${settings.phone}`, { center: true }),
   ];
-  // Invoice meta — left aligned
+  // Invoice meta — left aligned. The latest print entry names who printed this copy.
+  const printed = sale.printLog?.[sale.printLog.length - 1];
   const meta = [
     text(sale.invoiceNumber),
     row(at.toLocaleDateString('en-PH'), at.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })),
-    text(`Cashier: ${sale.cashierName}`),
+    text(`Handled by: ${sale.cashierName}`),
+    ...(printed
+      ? [text(`Printed by: ${printed.byName} ${new Date(printed.at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}`)]
+      : []),
     ...(sale.customerName ? [text(`Customer: ${sale.customerName}`)] : []),
+    ...(sale.discount ? [text(`${sale.discount.label}${sale.discount.idNo ? ` ID ${sale.discount.idNo}` : ''}`)] : []),
   ];
   // Line items — product name, then qty x price …… total
   const items = sale.lines.flatMap((l) => [

@@ -1,5 +1,7 @@
 /** Domain types shared across web, desktop, and mobile. */
 
+import type { Permission } from './permissions';
+
 export type Role = 'super_admin' | 'manager' | 'cashier' | 'handler';
 
 export interface User {
@@ -14,6 +16,8 @@ export interface User {
   pin: string;
   /** Salted hash of `pin`, set once the PIN has been verified or changed. */
   pinHash?: string;
+  /** Explicit module/feature grants. Unset = role defaults (see permissions.ts). */
+  permissions?: Permission[];
 }
 
 export interface Branch {
@@ -56,10 +60,18 @@ export interface Product {
   machineTracked?: boolean;
   /** Charges the configured notary fee per unit sold. */
   notaryFee?: boolean;
+  /** Paper sizes this print/copy service can use. Setting it makes the POS ask for paper. */
+  paperMaterialIds?: string[];
+  /** Fixed for the service: "Back to Back" is priced separately from single-sided. */
+  printSides?: PrintSides;
+  /** Printed pages per billing unit. A back-to-back sheet is two pages, so its page price is half the sheet price. */
+  pagesPerUnit?: number;
+  /** Sheets one billing unit uses for fixed-format documents (e.g. a 2-piece set). */
+  sheetsPerUnit?: number;
   isActive: boolean;
 }
 
-export type StockUnit = 'piece' | 'carton' | 'bundle' | 'roll' | 'liter' | 'pack' | 'sheet';
+export type StockUnit = 'piece' | 'carton' | 'bundle' | 'roll' | 'liter' | 'pack' | 'sheet' | 'yard';
 
 export interface Material {
   id: string;
@@ -92,6 +104,14 @@ export interface Customer {
   isSeniorCitizen: boolean;
   isPwd: boolean;
   discountId?: string;
+  /** Date of birth (YYYY-MM-DD) — drives birth-month tarpaulin prep. */
+  birthdate?: string;
+  /** Membership card number, entered by an authorized staff member. Unique. */
+  membershipCardNo?: string;
+  /** First day of the current one-year membership term (YYYY-MM-DD). */
+  membershipStart?: string;
+  /** Last valid day of the membership term (YYYY-MM-DD). */
+  membershipExpires?: string;
 }
 
 export type LineKind = 'product' | 'service';
@@ -107,6 +127,37 @@ export interface CartLine {
   /** Staff member who produces/serves the line. */
   handlerId?: string;
   discountPct?: number;
+  /** Paper size and sides for print/copy services. qty = printed pages. */
+  paper?: PaperChoice;
+}
+
+/** Which side(s) of the sheet are printed. Back-to-back = two pages per sheet. */
+export type PrintSides = 'single' | 'duplex';
+
+export interface PaperChoice {
+  /** Paper material (short / A4 / long bond). */
+  materialId: string;
+  sides: PrintSides;
+  /** Pages per copy. */
+  pages: number;
+  copies: number;
+}
+
+/** The discount actually applied to a sale — kept on the record for audit and receipts. */
+export interface AppliedDiscount {
+  kind: 'senior' | 'pwd' | 'promo' | 'manual';
+  label: string;
+  pct?: number;
+  amount: number;
+  /** SC/PWD ID number taken from the customer record at the time of sale. */
+  idNo?: string;
+}
+
+/** One entry per time a receipt was printed or reprinted. */
+export interface PrintEntry {
+  byId?: string;
+  byName: string;
+  at: string;
 }
 
 export type DiscountKind = 'none' | 'senior' | 'pwd' | 'promo' | 'manual';
@@ -148,6 +199,21 @@ export type PaymentMethod = 'cash' | 'card' | 'gcash' | 'maya';
 
 export type SaleStatus = 'completed' | 'voided' | 'refunded';
 
+/** A line on a sale, including the exact materials it drew from stock. */
+export interface SaleLine {
+  productId?: string;
+  name: string;
+  qty: number;
+  unitPrice: number;
+  total: number;
+  handlerId?: string;
+  handlerName?: string;
+  /** Paper size, sides, and the sheet count it used. */
+  paper?: PaperChoice & { sheets: number };
+  /** Exact materials deducted for this line — reversed exactly on void/refund. */
+  consumed?: { materialId: string; qty: number }[];
+}
+
 export interface Sale {
   id: string;
   invoiceNumber: string;
@@ -158,15 +224,9 @@ export interface Sale {
   branchId: string;
   branchName: string;
   customerName?: string;
-  lines: {
-    productId?: string;
-    name: string;
-    qty: number;
-    unitPrice: number;
-    total: number;
-    handlerId?: string;
-    handlerName?: string;
-  }[];
+  /** Customer record the sale was made to — drives purchase history and spend totals. */
+  customerId?: string;
+  lines: SaleLine[];
   subtotal: number;
   discountTotal: number;
   vatExempt: boolean;
@@ -176,11 +236,17 @@ export interface Sale {
   amountTendered: number;
   change: number;
   pointsEarned: number;
+  /** Loyalty points spent as a discount on this sale. */
+  pointsRedeemed?: number;
   /** Surcharges added to the sale (e.g. ₱1 notary fee). */
   fees?: { label: string; amount: number }[];
   status: SaleStatus;
   voidReason?: string;
   authorizedBy?: string;
+  /** Senior/PWD, promo or manual discount applied at checkout. */
+  discount?: AppliedDiscount;
+  /** Receipt print history — who handled and printed each copy. */
+  printLog?: PrintEntry[];
 }
 
 export interface StoreSettings {
@@ -215,6 +281,8 @@ export type MovementKind =
   | 'transfer_in'
   | 'adjustment'
   | 'waste'
+  | 'damaged'
+  | 'missing'
   | 'count_correction'
   | 'void_reversal';
 
@@ -290,7 +358,18 @@ export interface EmployeeProfile {
   deductions: number;
   /** Multiplier for overtime hours. */
   overtimeRate?: number;
+  /** Job role used for sales and commission reporting. */
+  jobRole?: JobRole;
+  /** Which credited amount commission and targets are measured on. */
+  commissionBasis?: CommissionBasis;
+  /** Commission percentage of the credited amount. */
+  commissionPct?: number;
+  /** Monthly sales target in pesos — reaching it makes the staff member reward-eligible. */
+  monthlyTarget?: number;
 }
+
+export type JobRole = 'cashier' | 'graphic_artist' | 'other';
+export type CommissionBasis = 'transactions' | 'handled_items' | 'none';
 
 export type LeaveType = 'vacation' | 'sick' | 'paid' | 'unpaid';
 
@@ -349,4 +428,19 @@ export interface AuditEntry {
   entityId?: string;
   detail?: string;
   branchId?: string;
+}
+
+/** A reward earned for hitting a monthly target. Kept apart from sales and commission. */
+export interface StaffReward {
+  id: string;
+  userId: string;
+  /** YYYY-MM the reward was earned for. */
+  month: string;
+  title: string;
+  notes?: string;
+  status: 'pending' | 'granted' | 'cancelled';
+  createdAt: string;
+  createdBy: string;
+  grantedAt?: string;
+  grantedBy?: string;
 }

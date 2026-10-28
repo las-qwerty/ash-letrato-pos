@@ -5,6 +5,7 @@ import { makeLine, type Product } from '@simmy/core';
 import { CartPanel } from '@/components/pos/cart-panel';
 import { ProductCard } from '@/components/pos/product-card';
 import { AreaModal } from '@/components/pos/area-modal';
+import { PaperModal } from '@/components/pos/paper-modal';
 import { CameraScan } from '@/components/camera-scan';
 import { IconBarcode, IconSearch } from '@/components/icons';
 import { useCart } from '@/lib/cart';
@@ -20,6 +21,7 @@ export default function PosPage() {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string>('all');
   const [areaProduct, setAreaProduct] = useState<Product | null>(null);
+  const [paperProduct, setPaperProduct] = useState<Product | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
 
@@ -40,6 +42,7 @@ export default function PosPage() {
   const add = useCallback(
     (p: Product) => {
       if (p.pricing === 'area') setAreaProduct(p);
+      else if (p.paperMaterialIds?.length) setPaperProduct(p);
       else addLine(makeLine(p, { handlerId: currentUser?.id }));
     },
     [addLine, currentUser],
@@ -147,6 +150,7 @@ export default function PosPage() {
 
       <CartPanel />
       <AreaModal product={areaProduct} onClose={() => setAreaProduct(null)} />
+      <PaperModal key={paperProduct?.id ?? 'none'} product={paperProduct} onClose={() => setPaperProduct(null)} />
       <CameraScan open={scanOpen} onClose={() => setScanOpen(false)} onScan={onScanned} />
     </div>
   );

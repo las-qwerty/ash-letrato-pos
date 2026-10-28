@@ -4,6 +4,7 @@ import { memo, useMemo, useState } from 'react';
 import {
   cartFees,
   missingHandlers,
+  paperSheets,
   peso,
   pointsToPeso,
   resolvePromo,
@@ -34,7 +35,9 @@ const LineItem = memo(function LineItem({ line }: { line: CartLine }) {
           <p className="mt-0.5 text-xs text-stone-500">
             {line.area
               ? `${line.area.width}×${line.area.height} ${line.area.unit} @ ${peso(line.area.rate)}`
-              : peso(line.unitPrice)}
+              : line.paper
+                ? `${line.qty} × ${peso(line.unitPrice)} · ${paperSheets(line.paper.pages, line.paper.copies, line.paper.sides)} sheets`
+                : peso(line.unitPrice)}
             {line.discountPct ? ` · −${line.discountPct}%` : ''}
           </p>
         </div>
@@ -51,7 +54,7 @@ const LineItem = memo(function LineItem({ line }: { line: CartLine }) {
       </div>
 
       <div className="mt-2 flex items-center gap-2">
-        {!line.area && (
+        {!line.area && !line.paper && (
           <div className="flex items-center rounded-lg border border-stone-200">
             <button
               className="px-2.5 py-2 text-stone-500 hover:text-ink disabled:opacity-30"

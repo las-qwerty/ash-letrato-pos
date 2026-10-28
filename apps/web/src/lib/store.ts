@@ -27,7 +27,11 @@ import {
   type StockMovement,
   type StoreSettings,
   type User,
+  type Permission,
+  type PrintEntry,
+  type StaffReward,
 } from '@simmy/core';
+import { isBuyer, saleUsage, upgradeCollections } from './ledger';
 
 /**
  * Local data store — stands in for the REST API in demo mode.
@@ -58,6 +62,7 @@ interface DataState {
   attendance: AttendanceRecord[];
   payrollRuns: PayrollRun[];
   auditLog: AuditEntry[];
+  staffRewards: StaffReward[];
 
   currentUser: User | null;
   /** Register is locked — app routes bounce to /lock until a staff PIN unlocks. */
@@ -81,7 +86,7 @@ interface DataState {
   refundSale: (id: string, reason: string, authorizedBy: string) => void;
 
   restockMaterial: (id: string, qty: number, actor?: Actor) => void;
-  adjustMaterial: (id: string, qty: number, reason: string, actor?: Actor, kind?: 'adjustment' | 'waste') => void;
+  adjustMaterial: (id: string, qty: number, reason: string, actor?: Actor, kind?: 'adjustment' | 'waste' | 'damaged' | 'missing') => void;
   /** Bulk-apply a physical stock count: map of materialId → counted qty. */
   applyStockCount: (counts: Record<string, number>, actor?: Actor) => void;
   /** Move stock between branches. Returns false on bad input or insufficient source stock. */
@@ -114,7 +119,12 @@ interface DataState {
   advancePayroll: (id: string, to: 'reviewed' | 'approved' | 'paid', by: string) => void;
 
   upsertProduct: (p: Product) => void;
-  upsertCustomer: (c: Customer) => void;
+  /** Returns an error message when the membership card number is already in use. */
+  upsertCustomer: (c: Customer) => string | null;
+  /** Record a receipt print or reprint against the sale. */
+  recordPrint: (saleId: string, entry: PrintEntry) => void;
+  /** Create or update a monthly reward. Rewards are never part of sales or commission. */
+  upsertStaffReward: (r: StaffReward) => void;
   upsertUser: (u: User) => void;
   upsertPromotion: (p: Promotion) => void;
   upsertCategory: (c: Category) => void;
@@ -150,6 +160,7 @@ const OPTIONAL_KEYS = [
   'attendance',
   'payrollRuns',
   'auditLog',
+  'staffRewards',
 ] as const;
 
 interface BackupPayload {
@@ -178,6 +189,8 @@ export const useStore = create<DataState>()(
       attendance: seed.attendance,
       payrollRuns: seed.payrollRuns,
       auditLog: seed.auditLog,
+
+      staffRewards: seed.staffRewards,
 
       currentUser: null,
       locked: false,
@@ -265,20 +278,16 @@ export const useStore = create<DataState>()(
       recordSale: (sale, promoId) =>
         set((s) => {
           const main = s.branches[0]?.id ?? '';
+          const branchId = sale.branchId || main;
           const moves: StockMovement[] = [];
+          const usage = saleUsage(sale, s.products);
           const materials = s.materials.map((m) => {
-            const used = sale.lines.reduce((acc, line) => {
-              const product = line.productId
-                ? s.products.find((p) => p.id === line.productId)
-                : undefined;
-              const recipe = product?.consumes.find((c) => c.materialId === m.id);
-              return acc + (recipe ? recipe.qty * line.qty : 0);
-            }, 0);
+            const used = usage.find((u) => u.materialId === m.id)?.qty ?? 0;
             if (!used) return m;
             moves.push({
               id: `mv-${Date.now()}-${m.id}-${Math.random().toString(36).slice(2, 7)}`,
               materialId: m.id,
-              branchId: sale.branchId || main,
+              branchId,
               kind: 'consumed',
               qty: -used,
               reason: `Sale ${sale.invoiceNumber}`,
@@ -287,7 +296,7 @@ export const useStore = create<DataState>()(
               employeeName: sale.cashierName,
               createdAt: sale.createdAt,
             });
-            return moveStock(m, sale.branchId || main, -used, main);
+            return moveStock(m, branchId, -used, main, { allowNegative: true });
           });
           return {
             sales: [sale, ...s.sales],
@@ -313,11 +322,11 @@ export const useStore = create<DataState>()(
               : p,
           ),
           customers: s.customers.map((c) =>
-            sale.customerName === `${c.firstName} ${c.lastName}`
+            isBuyer(c, sale)
               ? {
                   ...c,
                   lifetimeSpend: c.lifetimeSpend + sale.total,
-                  loyaltyPoints: c.loyaltyPoints + sale.pointsEarned,
+                  loyaltyPoints: Math.max(0, c.loyaltyPoints - (sale.pointsRedeemed ?? 0)) + sale.pointsEarned,
                   tier: tierForSpend(c.lifetimeSpend + sale.total),
                 }
               : c,
@@ -332,14 +341,9 @@ export const useStore = create<DataState>()(
           const main = s.branches[0]?.id ?? '';
           const moves: StockMovement[] = [];
           // A void never happened: restore stock, materials, spend, and points.
+          const usage = saleUsage(sale, s.products);
           const materials = s.materials.map((m) => {
-            const restore = sale.lines.reduce((acc, line) => {
-              const product = line.productId
-                ? s.products.find((p) => p.id === line.productId)
-                : undefined;
-              const recipe = product?.consumes.find((c) => c.materialId === m.id);
-              return acc + (recipe ? recipe.qty * line.qty : 0);
-            }, 0);
+            const restore = usage.find((u) => u.materialId === m.id)?.qty ?? 0;
             if (!restore) return m;
             moves.push({
               id: `mv-${Date.now()}-${m.id}-${Math.random().toString(36).slice(2, 7)}`,
@@ -353,7 +357,7 @@ export const useStore = create<DataState>()(
               employeeName: authorizedBy,
               createdAt: new Date().toISOString(),
             });
-            return moveStock(m, sale.branchId || main, restore, main);
+            return moveStock(m, sale.branchId || main, restore, main, { allowNegative: true });
           });
           return {
             sales: s.sales.map((x) =>
@@ -407,14 +411,9 @@ export const useStore = create<DataState>()(
           const main = s.branches[0]?.id ?? '';
           const moves: StockMovement[] = [];
           // Returned goods come back into stock — same restoration as voidSale.
+          const usage = saleUsage(sale, s.products);
           const materials = s.materials.map((m) => {
-            const restore = sale.lines.reduce((acc, line) => {
-              const product = line.productId
-                ? s.products.find((p) => p.id === line.productId)
-                : undefined;
-              const recipe = product?.consumes.find((c) => c.materialId === m.id);
-              return acc + (recipe ? recipe.qty * line.qty : 0);
-            }, 0);
+            const restore = usage.find((u) => u.materialId === m.id)?.qty ?? 0;
             if (!restore) return m;
             moves.push({
               id: `mv-${Date.now()}-${m.id}-${Math.random().toString(36).slice(2, 7)}`,
@@ -428,7 +427,7 @@ export const useStore = create<DataState>()(
               employeeName: authorizedBy,
               createdAt: new Date().toISOString(),
             });
-            return moveStock(m, sale.branchId || main, restore, main);
+            return moveStock(m, sale.branchId || main, restore, main, { allowNegative: true });
           });
           return {
             sales: s.sales.map((x) =>
@@ -508,7 +507,7 @@ export const useStore = create<DataState>()(
           const a = actor ?? { employeeId: '', employeeName: 'System', branchId: main };
           return {
             materials: s.materials.map((m) =>
-              m.id === id ? moveStock(m, a.branchId, qty, main) : m,
+              m.id === id ? moveStock(m, a.branchId, qty, main, { allowNegative: true }) : m,
             ),
             stockMovements: [
               {
@@ -530,7 +529,7 @@ export const useStore = create<DataState>()(
                 at: new Date().toISOString(),
                 actorId: a.employeeId,
                 actorName: a.employeeName,
-                action: kind === 'waste' ? 'waste_material' : 'adjust_material',
+                action: kind === 'adjustment' ? 'adjust_material' : 'record_loss',
                 entity: 'material',
                 entityId: id,
                 detail: `${qty > 0 ? '+' : ''}${qty} — ${reason}`,
@@ -801,13 +800,42 @@ export const useStore = create<DataState>()(
         })),
 
       upsertUser: (u) => {
+        // Only the owner can change what a staff member may access. Anyone else
+        // keeps the existing grants, and new accounts start on role defaults.
+        const actor = get().currentUser;
+        const prev = get().users.find((x) => x.id === u.id);
+        const access =
+          actor?.role === 'super_admin'
+            ? { permissions: u.permissions, canAuthorizeVoids: u.canAuthorizeVoids }
+            : { permissions: prev?.permissions, canAuthorizeVoids: prev?.canAuthorizeVoids ?? false };
+        const granted = access.permissions
+          ? { ...access, canAuthorizeVoids: access.permissions.includes('void_refund') }
+          : access;
         // Hash a freshly-set PIN before persisting; keep existing hash otherwise.
         const hashAndStore = async () => {
-          const toStore = u.pin ? { ...u, pinHash: await hashPin(u.pin), pin: '' } : u;
+          const base = { ...u, ...granted };
+          const toStore = u.pin ? { ...base, pinHash: await hashPin(u.pin), pin: '' } : base;
+          const accessChanged = JSON.stringify(prev?.permissions) !== JSON.stringify(toStore.permissions);
           set((s) => ({
             users: s.users.some((x) => x.id === toStore.id)
               ? s.users.map((x) => (x.id === toStore.id ? toStore : x))
               : [...s.users, toStore],
+            auditLog: !accessChanged
+              ? s.auditLog
+              : [
+                  {
+                    id: `au-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                    at: new Date().toISOString(),
+                    actorId: actor?.id ?? '',
+                    actorName: actor ? `${actor.firstName} ${actor.lastName}` : 'System',
+                    action: 'update_access',
+                    entity: 'user',
+                    entityId: toStore.id,
+                    detail: toStore.permissions ? toStore.permissions.join(', ') : 'Role defaults',
+                    branchId: actor?.branchId,
+                  },
+                  ...s.auditLog,
+                ],
           }));
         };
         void hashAndStore();
@@ -858,6 +886,7 @@ export const useStore = create<DataState>()(
           attendance: seed.attendance,
           payrollRuns: seed.payrollRuns,
           auditLog: seed.auditLog,
+          staffRewards: seed.staffRewards,
           pinFailures: {},
           locked: false,
         }),
@@ -869,11 +898,29 @@ export const useStore = create<DataState>()(
             : [...s.products, p],
         })),
 
-      upsertCustomer: (c) =>
+      upsertCustomer: (c) => {
+        const card = c.membershipCardNo?.trim().toUpperCase() || undefined;
+        if (card && get().customers.some((x) => x.id !== c.id && x.membershipCardNo?.trim().toUpperCase() === card))
+          return 'That membership card number already belongs to another customer.';
+        const next = { ...c, membershipCardNo: card };
         set((s) => ({
           customers: s.customers.some((x) => x.id === c.id)
-            ? s.customers.map((x) => (x.id === c.id ? c : x))
-            : [...s.customers, c],
+            ? s.customers.map((x) => (x.id === c.id ? next : x))
+            : [...s.customers, next],
+        }));
+        return null;
+      },
+
+      recordPrint: (saleId, entry) =>
+        set((s) => ({
+          sales: s.sales.map((x) => (x.id === saleId ? { ...x, printLog: [...(x.printLog ?? []), entry] } : x)),
+        })),
+
+      upsertStaffReward: (r) =>
+        set((s) => ({
+          staffRewards: s.staffRewards.some((x) => x.id === r.id)
+            ? s.staffRewards.map((x) => (x.id === r.id ? r : x))
+            : [r, ...s.staffRewards],
         })),
 
       updateSettings: (patch) =>
@@ -883,7 +930,7 @@ export const useStore = create<DataState>()(
         const s = get();
         return {
           app: 'ash-letrato-pos',
-          version: 2,
+          version: 3,
           exportedAt: new Date().toISOString(),
           data: {
             users: s.users,
@@ -902,6 +949,7 @@ export const useStore = create<DataState>()(
             attendance: s.attendance,
             payrollRuns: s.payrollRuns,
             auditLog: s.auditLog,
+            staffRewards: s.staffRewards,
           },
         };
       },
@@ -936,13 +984,21 @@ export const useStore = create<DataState>()(
             ...p,
             kind: p.kind ?? (p.sku?.startsWith('SRV-') ? 'service' : 'product'),
           }));
+          const up = upgradeCollections({
+            users,
+            materials: d.materials as Material[],
+            products,
+            employeeProfiles: extra.employeeProfiles,
+            categories: d.categories as Category[],
+          });
+          extra.employeeProfiles = up.employeeProfiles;
           const cur = get().currentUser;
           set({
             users,
-            products,
+            products: up.products,
             branches: d.branches as Branch[],
-            categories: d.categories as Category[],
-            materials: d.materials as Material[],
+            categories: up.categories ?? (d.categories as Category[]),
+            materials: up.materials,
             customers: d.customers as Customer[],
             sales: d.sales as Sale[],
             promotions: d.promotions as Promotion[],
@@ -962,7 +1018,7 @@ export const useStore = create<DataState>()(
     }),
     {
       name: 'simmy-pos',
-      version: 4,
+      version: 5,
       // v1 → v2: rebrand + product/service split. Normalize old installs so
       // stored staff emails and untyped products keep working without a reset.
       // v2 → v3: branch-attributed sales + enterprise entities (ledger, HR).
@@ -1014,6 +1070,21 @@ export const useStore = create<DataState>()(
             ...s.settings,
             receiptFooter: 'Thank you!\nTHIS DOES NOT SERVE AS AN INVOICE',
           };
+        }
+        // v4 → v5: paper sizes, photocopy paper choice, job roles, reward ledger.
+        if (version < 5 && s) {
+          const up = upgradeCollections({
+            users: (s.users ?? []) as User[],
+            materials: (s.materials ?? []) as Material[],
+            products: (s.products ?? []) as Product[],
+            employeeProfiles: (s.employeeProfiles ?? []) as EmployeeProfile[],
+            categories: (s.categories ?? []) as Category[],
+          });
+          s.materials = up.materials;
+          s.products = up.products;
+          s.employeeProfiles = up.employeeProfiles;
+          if (up.categories) s.categories = up.categories;
+          s.staffRewards = s.staffRewards ?? [];
         }
         return s;
       },

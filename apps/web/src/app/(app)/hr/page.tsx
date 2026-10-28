@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { fmtTime, peso, workedHours, type EmployeeProfile, type LeaveType, type PayrollRun, type User } from '@simmy/core';
+import { defaultBasis, fmtTime, peso, workedHours, type CommissionBasis, type EmployeeProfile, type JobRole, type LeaveType, type PayrollRun, type User } from '@simmy/core';
 import { Badge, EmptyState, Field, Modal, PageHeader } from '@/components/ui';
 import { Pagination } from '@/components/pagination';
 import { downloadXlsx } from '@/lib/excel';
@@ -125,6 +125,10 @@ function ProfileModal({
   const [deductions, setDeductions] = useState(String(existing?.deductions ?? 0));
   const [ot, setOt] = useState(String(existing?.overtimeRate ?? 1.25));
   const [hiredAt, setHiredAt] = useState(existing?.hiredAt ?? new Date().toISOString().slice(0, 10));
+  const [jobRole, setJobRole] = useState<JobRole>(existing?.jobRole ?? 'other');
+  const [basis, setBasis] = useState<CommissionBasis>(existing?.commissionBasis ?? defaultBasis(existing?.jobRole));
+  const [commissionPct, setCommissionPct] = useState(String(existing?.commissionPct ?? 0));
+  const [target, setTarget] = useState(existing?.monthlyTarget != null ? String(existing.monthlyTarget) : '');
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,6 +143,10 @@ function ProfileModal({
       allowances: Math.max(0, parseFloat(allowances) || 0),
       deductions: Math.max(0, parseFloat(deductions) || 0),
       overtimeRate: Math.max(1, parseFloat(ot) || 1.25),
+      jobRole,
+      commissionBasis: basis,
+      commissionPct: Math.min(100, Math.max(0, parseFloat(commissionPct) || 0)),
+      monthlyTarget: parseFloat(target) > 0 ? parseFloat(target) : undefined,
     });
     onClose();
   };
@@ -179,6 +187,38 @@ function ProfileModal({
           </Field>
           <Field label="OT multiplier">
             <input className="input" type="number" min={1} step="0.05" value={ot} onChange={(e) => setOt(e.target.value)} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Job role">
+            <select
+              className="input"
+              value={jobRole}
+              onChange={(e) => {
+                const r = e.target.value as JobRole;
+                setJobRole(r);
+                setBasis(defaultBasis(r));
+              }}
+            >
+              <option value="cashier">Cashier</option>
+              <option value="graphic_artist">Graphic artist</option>
+              <option value="other">Other</option>
+            </select>
+          </Field>
+          <Field label="Commission on">
+            <select className="input" value={basis} onChange={(e) => setBasis(e.target.value as CommissionBasis)}>
+              <option value="transactions">Sales they rang up</option>
+              <option value="handled_items">Items they produced</option>
+              <option value="none">No commission</option>
+            </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Commission (%)">
+            <input className="input" type="number" min={0} max={100} step="0.5" value={commissionPct} onChange={(e) => setCommissionPct(e.target.value)} />
+          </Field>
+          <Field label="Monthly sales target (₱)">
+            <input className="input" type="number" min={0} step="100" placeholder="None" value={target} onChange={(e) => setTarget(e.target.value)} />
           </Field>
         </div>
         <Field label="Hired on">
