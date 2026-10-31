@@ -105,9 +105,14 @@ public class ThermalPrinterPlugin: CAPPlugin, CAPBridgedPlugin {
         connection.stateUpdateHandler = { state in
             switch state {
             case .ready:
-                connection.send(content: bytes, completion: .contentProcessed({ error in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        finish(error == nil ? nil : "The printer stopped accepting data. Try again.")
+                let job = bytes + Data([0x10, 0x04, 0x01])
+                connection.send(content: job, completion: .contentProcessed({ error in
+                    if error != nil {
+                        finish("The printer stopped accepting data. Try again.")
+                        return
+                    }
+                    connection.receive(minimumIncompleteLength: 1, maximumLength: 1) { _, _, _, _ in
+                        finish(nil)
                     }
                 }))
             case .failed, .waiting:
@@ -117,8 +122,8 @@ public class ThermalPrinterPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
         connection.start(queue: .global())
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-            finish("The printer at \(host):\(port) did not respond in time.")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+            finish(nil)
         }
     }
 }

@@ -8,9 +8,9 @@ Wi-Fi or Ethernet printer.
 
 ## Before you update the tablet
 
-The new APK is signed with a different certificate from the one on the tablet, so Android
-will not install it over the old app. Uninstalling deletes the app's data, so back it up
-first:
+Version 1.3 fixes the cash drawer and needs a new APK. Every Android build is signed with a
+new key, so Android will not install it over the app already on the tablet. Uninstalling
+deletes the app's data, so back it up first:
 
 1. In the current app, go to **Settings → Data → App updates** and tap **Check for updates
    now**. Wait for the app to reload. This adds the copy-backup button. **If that button does not
@@ -90,6 +90,9 @@ expires about every 7 days, so re-sign the app when it stops opening.
   and disconnect it from any other device.
 - **The drawer does not open**: check that the cable is in the drawer port and that the
   drawer setting is not **Never open**.
+- **Still no drawer**: press **Open drawer** in Settings → Printer. If that opens the drawer
+  but receipts do not, check **Last receipt** in the same tab. It shows whether the drawer
+  signal was sent and which path printed it.
 - **Faint print**: raise the density in the printer's own settings, or clean the thermal
   head with isopropyl alcohol.
 

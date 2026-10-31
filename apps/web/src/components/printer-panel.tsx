@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { buildDrawerEscPos, buildTestEscPos } from '@/lib/escpos';
-import { loadPrinter, savePrinter, type DrawerMode, type PrinterConfig } from '@/lib/printer-config';
+import { loadLastPrint, loadPrinter, savePrinter, type DrawerMode, type PrintReport, type PrinterConfig } from '@/lib/printer-config';
 import { sendToPrinter } from '@/lib/print';
 import { nativePrinterReady, ThermalPrinter, type PairedDevice } from '@/lib/thermal';
 import { Field } from './ui';
@@ -14,13 +14,34 @@ const DRAWER_LABEL: Record<DrawerMode, string> = {
   off: 'Never open',
 };
 
+function describeLast(r: PrintReport | null) {
+  if (!r) return 'Last receipt: none printed from this device yet.';
+  const when = new Date(r.at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  if (r.path === 'unset') return `Last receipt, ${when}: not printed, no printer chosen.`;
+  const path = {
+    bluetooth: 'Bluetooth printer',
+    network: 'network printer',
+    rawbt: 'RawBT app (update the tablet app for direct printing)',
+    browser: 'browser print dialog',
+  }[r.path];
+  const drawer = {
+    sent: r.path === 'rawbt' ? 'drawer signal in the RawBT job (RawBT may not open the drawer)' : 'cash drawer signal sent',
+    none: 'no drawer signal',
+    unsupported: 'this browser cannot open the cash drawer',
+    'not-sent': 'cash drawer signal not sent',
+  }[r.drawer];
+  return `Last receipt, ${when}: ${r.ok ? 'sent to' : 'failed on'} ${path} · ${drawer}${r.error ? ` · ${r.error}` : ''}`;
+}
+
 export function PrinterPanel() {
   const [cfg, setCfg] = useState<PrinterConfig>(() => loadPrinter());
   const [devices, setDevices] = useState<PairedDevice[]>([]);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [native, setNative] = useState(false);
+  const [last, setLast] = useState<PrintReport | null>(null);
   useEffect(() => {
     void nativePrinterReady().then(setNative);
+    setLast(loadLastPrint());
   }, []);
   const isIos = Capacitor.getPlatform() === 'ios';
 
@@ -59,6 +80,7 @@ export function PrinterPanel() {
           ? 'Direct printing is on. Receipts go straight to your printer, with no RawBT app needed.'
           : 'Direct printing works in the ASH LETRATO Android and iPad apps. In a browser, receipts use the system print dialog.'}
       </p>
+      <p className="text-xs leading-relaxed text-stone-500">{describeLast(last)}</p>
 
       {!isIos && (
         <Field label="Bluetooth printer (Android tablet)">
@@ -137,7 +159,7 @@ export function PrinterPanel() {
           type="button"
           className="btn-secondary"
           disabled={!native}
-          onClick={() => run('Drawer opened.', () => sendToPrinter(buildDrawerEscPos()))}
+          onClick={() => run('Drawer signal sent. Check that the drawer opened.', () => sendToPrinter(buildDrawerEscPos()))}
         >
           Open drawer
         </button>

@@ -16,6 +16,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -30,6 +31,9 @@ import java.util.concurrent.Executors;
 public class ThermalPrinterPlugin extends Plugin {
     private static final UUID SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
+    private static final byte[] STATUS_REQUEST = { 0x10, 0x04, 0x01 };
+    private static final int ACK_TIMEOUT_MS = 6000;
+    private static final int SETTLE_MS = 2000;
 
     private boolean needsBluetoothPermission() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getPermissionState("bluetooth") != PermissionState.GRANTED;
@@ -107,14 +111,23 @@ public class ThermalPrinterPlugin extends Plugin {
     }
 
     private void sendNetwork(String host, int port, byte[] bytes) throws IOException {
-        try (Socket socket = new Socket()) {
+        Socket socket = new Socket();
+        try {
             socket.connect(new InetSocketAddress(host, port), 8000);
-            socket.setSoTimeout(8000);
-            OutputStream out = socket.getOutputStream();
-            out.write(bytes);
-            out.flush();
         } catch (IOException e) {
+            socket.close();
             throw new IOException("Could not reach the printer at " + host + ":" + port + ". Check it is switched on and on the same Wi-Fi.");
+        }
+        try {
+            InputStream in = socket.getInputStream();
+            OutputStream out = socket.getOutputStream();
+            drain(in);
+            out.write(bytes);
+            out.write(STATUS_REQUEST);
+            out.flush();
+            awaitAck(in);
+        } finally {
+            socket.close();
         }
     }
 
@@ -125,14 +138,45 @@ public class ThermalPrinterPlugin extends Plugin {
         BluetoothDevice device = adapter.getRemoteDevice(address);
         BluetoothSocket socket = connectSpp(device);
         try {
+            InputStream in = socket.getInputStream();
             OutputStream out = socket.getOutputStream();
+            drain(in);
             out.write(bytes);
+            out.write(STATUS_REQUEST);
             out.flush();
-            Thread.sleep(300);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            awaitAck(in);
         } finally {
             socket.close();
+        }
+    }
+
+    private static void drain(InputStream in) throws IOException {
+        while (in.available() > 0) in.read();
+    }
+
+    /**
+     * Waits for the printer's reply to the trailing DLE EOT request. The printer
+     * answers once it has received every byte before it, including the drawer
+     * pulse, so closing earlier can drop them. Printers that never reply get a
+     * fixed settle time instead of an error.
+     */
+    private static void awaitAck(InputStream in) throws IOException {
+        long deadline = System.currentTimeMillis() + ACK_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            if (in.available() > 0) {
+                in.read();
+                return;
+            }
+            pause(50);
+        }
+        pause(SETTLE_MS);
+    }
+
+    private static void pause(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
