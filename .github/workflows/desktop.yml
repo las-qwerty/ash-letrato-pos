@@ -79,23 +79,25 @@ jobs:
         run: |
           set -euo pipefail
           NSIS=$(ls target/release/bundle/nsis/*-setup.exe | head -1)
-          ASSET=$(basename "$NSIS" | tr ' ' '.')
+          MSI=$(ls target/release/bundle/msi/*.msi | head -1)
           node -e '
             const fs = require("fs");
-            const [nsis, asset] = process.argv.slice(1);
-            const platform = {
-              signature: fs.readFileSync(nsis + ".sig", "utf8").trim(),
-              url: `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/download/desktop-latest/${asset}`,
-            };
+            const [nsis, msi] = process.argv.slice(1);
+            const platform = (file) => ({
+              signature: fs.readFileSync(file + ".sig", "utf8").trim(),
+              url: `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/download/desktop-latest/${file.split("/").pop().replace(/ /g, ".")}`,
+            });
+            const nsisPlatform = platform(nsis);
             const manifest = {
               version: JSON.parse(fs.readFileSync("tauri.conf.json", "utf8")).version,
               notes: "",
               pub_date: new Date().toISOString(),
               platforms: {
-                "windows-x86_64": platform,
-                "windows-x86_64-nsis": platform,
+                "windows-x86_64": nsisPlatform,
+                "windows-x86_64-nsis": nsisPlatform,
+                "windows-x86_64-msi": platform(msi),
               },
             };
             fs.writeFileSync("latest.json", JSON.stringify(manifest, null, 2) + "\n");
-          ' "$NSIS" "$ASSET"
+          ' "$NSIS" "$MSI"
           gh release upload desktop-latest latest.json --clobber
