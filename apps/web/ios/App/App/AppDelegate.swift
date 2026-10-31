@@ -106,7 +106,9 @@ public class ThermalPrinterPlugin: CAPPlugin, CAPBridgedPlugin {
             switch state {
             case .ready:
                 connection.send(content: bytes, completion: .contentProcessed({ error in
-                    finish(error == nil ? nil : "The printer stopped accepting data. Try again.")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        finish(error == nil ? nil : "The printer stopped accepting data. Try again.")
+                    }
                 }))
             case .failed, .waiting:
                 finish(unreachable)
