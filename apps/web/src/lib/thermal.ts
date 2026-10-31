@@ -15,7 +15,10 @@ let ready: Promise<boolean> | undefined;
 export function nativePrinterReady(): Promise<boolean> {
   if (!ready) {
     ready = Capacitor.isNativePlatform()
-      ? ThermalPrinter.ping().then(() => true, () => false)
+      ? Promise.race([
+          ThermalPrinter.ping().then(() => true, () => false),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000)),
+        ])
       : Promise.resolve(false);
   }
   return ready;
