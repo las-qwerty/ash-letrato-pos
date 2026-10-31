@@ -6,22 +6,30 @@ Wi-Fi or Ethernet printer.
 
 ---
 
-## Before you update
+## Before you update the tablet
 
-1. Open **Settings → Data → Backup this device** and keep the file.
-2. Uninstall **ASH LETRATO POS** from the tablet before installing this update. The new
-   APK is signed with a different key than the one on the tablet, so Android will not
-   install it over the old app. Uninstalling removes the local data, so keep the backup.
-3. After the new APK is installed, open **Settings → Data → Restore from a backup** and
-   choose your file.
+The new APK is signed with a different certificate from the one on the tablet, so Android
+will not install it over the old app. Uninstalling deletes the app's data, so back it up
+first:
+
+1. In the current app, go to **Settings → Data → App updates** and tap **Check for updates
+   now**. Wait for the app to reload. This adds the copy-backup button.
+2. Go to **Settings → Data** and tap **Copy backup text**. Save the text in a private note.
+   It contains all of the shop's data, so do not share it. (The file export is desktop-only,
+   because the tablet cannot save downloaded files.)
+3. Uninstall **ASH LETRATO POS**.
+4. Install the new APK (step 1 below), open the app, and sign in.
+5. Go to **Settings → Data → Restore from pasted text**, paste the text, and tap
+   **Restore from pasted text**. Printer choices are kept on the device, not in the backup,
+   so choose the printer again in **Settings → Printer**.
 
 ---
 
 ## Android tablet with the BT-80UB
 
-1. **Install the new APK once.** In Chrome, open `ash-letrato-pos.vercel.app` and tap
-   **Download APK**, or use the `android-latest` release. Web updates after that arrive
-   automatically.
+1. **Install the new APK.** After the backup steps above, open
+   `ash-letrato-pos.vercel.app` in Chrome and tap **Download APK**, or use the
+   `android-latest` release. Web updates after that arrive automatically.
 2. **Pair the printer.** Tablet **Settings → Connections → Bluetooth**, then tap the
    BT-80UB. Enter `0000` or `1234` if asked.
 3. **Choose it in the POS.** **Settings → Printer → Find paired printers**, then tap
@@ -44,7 +52,8 @@ Bluetooth LE will not connect.
   - **Open for cash sales** (default): opens with the receipt of each cash sale.
   - **Open for every sale**: also opens for card and GCash sales.
   - **Never open**.
-- Reprints from Transactions never open the drawer.
+- Only the automatic receipt after a sale opens the drawer. **Print receipt** buttons and
+  reprints from Transactions never do.
 - **Open drawer** tests the drawer without printing anything.
 
 ---
