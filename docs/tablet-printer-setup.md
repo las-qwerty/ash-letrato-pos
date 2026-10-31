@@ -8,21 +8,22 @@ Wi-Fi or Ethernet printer.
 
 ## Before you update the tablet
 
-Version 1.4 includes the cash drawer fix (1.3) and the fix for App updates, which failed with
-"Failed to download from". The updater code runs inside the app, so the app already on the
-tablet cannot repair itself; it needs this new APK. Every Android build is signed with a new
-key, so Android will not install it over the app already on the tablet. Uninstalling deletes
-the app's data, so back it up first:
+Version 1.4 fixes App updates ("Failed to download from") and includes the cash drawer fix. The
+app already on the tablet cannot repair itself, because its updater runs inside the app, so it
+needs this new APK. Every Android build is signed with a new key, so Android will not install it
+over the app already on the tablet. Uninstalling deletes the app's data, so back it up first:
 
-1. In the current app, go to **Settings → Data → App updates** and tap **Check for updates
-   now**. Wait for the app to reload. This adds the copy-backup button. **If that button does not
-   appear on Settings → Data, stop here and do not uninstall.** Without it there is no
-   way to back up the data on the tablet.
-2. Go to **Settings → Data** and tap **Copy backup text**. Save the text in a private note.
-   It contains all of the shop's data, so do not share it. (The file export is desktop-only,
-   because the tablet cannot save downloaded files.)
+1. Open **Settings → Data**. If **Copy backup text** is there, tap it, save the text in a private
+   note, and go to step 3.
+2. If there is no **Copy backup text** button, the installed app is older than 1.4. Do not uninstall
+   yet. Connect the tablet to a PC with USB debugging on, open `chrome://inspect` in Chrome on the
+   PC, click **inspect** under ASH LETRATO POS, and paste this into the console:
+   `copy(JSON.stringify({app:'ash-letrato-pos',version:3,data:JSON.parse(localStorage.getItem('simmy-pos')).state}))`
+   The `version:3` makes the restore add the new services. Save the result in a private note. This
+   route is untested on your tablet. The text should start with `{"app":"ash-letrato-pos"` and be
+   well over 100 KB. Do not uninstall unless it does.
 3. Uninstall **ASH LETRATO POS**.
-4. Install the new APK (step 1 below), open the app, and sign in.
+4. Install the 1.4 APK (step 1 below), open the app, and sign in.
 5. Go to **Settings → Data → Restore from pasted text**, paste the text, and tap
    **Restore from pasted text**. Printer choices are kept on the device, not in the backup,
    so choose the printer again in **Settings → Printer**.
@@ -78,9 +79,10 @@ Ethernet**, ESC/POS support, and a drawer port.
 
 Until a network printer is set, receipts use the normal print sheet.
 
-Version 1.4 also fixes App updates on the iPad. Back up first (Settings → Data → Copy backup
-text), then install the new `ios-latest` IPA once with Sideloadly. The updater runs inside the
-app, so the copy installed today cannot repair itself.
+The iPad also needs the new `ios-latest` IPA to fix App updates. The updater runs inside the app,
+so the copy installed today cannot repair itself. Install it with Sideloadly over the existing app
+first, which keeps the app's data. If iOS refuses, the app has to be deleted, which also deletes its
+data. The installed iPad app has no backup button, so ask before deleting it.
 
 The iPad app is installed from the `ios-latest` build with Sideloadly. A free Apple ID
 expires about every 7 days, so re-sign the app when it stops opening.
