@@ -22,15 +22,16 @@ export function AreaModal({
   const height = parseFloat(h) || 0;
   const dimsValid = isDimension(width) && isDimension(height);
   const area = dimsValid ? width * height : 0;
-  const price = product ? area * product.price : 0;
+  const price = product ? (area > 0 ? Math.max(area * product.price, product.minCharge ?? 0) : 0) : 0;
+  const dim = product?.areaUnit?.includes('in') ? 'in' : 'ft';
 
   return (
     <Modal open={!!product} onClose={onClose} title={product?.name ?? ''}>
       <p className="-mt-1 mb-4 text-sm text-stone-500">
-        {product && `${peso(product.price)} per ${product.areaUnit}`}
+        {product && `${peso(product.price)} per ${product.areaUnit}${product.minCharge ? ` · minimum ${peso(product.minCharge)}` : ''}`}
       </p>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Width (ft)">
+        <Field label={`Width (${dim})`}>
           <input
             className="input text-center text-lg"
             inputMode="decimal"
@@ -39,7 +40,7 @@ export function AreaModal({
             onChange={(e) => setW(e.target.value)}
           />
         </Field>
-        <Field label="Height (ft)">
+        <Field label={`Height (${dim})`}>
           <input
             className="input text-center text-lg"
             inputMode="decimal"
@@ -53,7 +54,7 @@ export function AreaModal({
       <div className="mt-4 flex items-baseline justify-between rounded-lg bg-paper px-4 py-3">
         <span className="text-sm text-stone-500">
           {(width > 0 || height > 0) && !dimsValid
-            ? 'Dimensions must be 0.1–500 ft'
+            ? `Dimensions must be 0.1–500 ${dim}`
             : area > 0
               ? `${area.toFixed(1)} ${product?.areaUnit}`
               : 'Enter dimensions'}

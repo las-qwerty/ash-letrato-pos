@@ -166,6 +166,7 @@ export function CatalogModal({
                     ...form,
                     pricing: e.target.value as Product['pricing'],
                     areaUnit: e.target.value === 'area' ? 'sq ft' : undefined,
+                    minCharge: e.target.value === 'area' ? form.minCharge : undefined,
                   })
                 }
               >
@@ -185,6 +186,18 @@ export function CatalogModal({
               />
             </Field>
           </div>
+          {form.pricing === 'area' && (
+            <Field label="Minimum charge (optional)">
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.minCharge || ''}
+                onChange={(e) => setForm({ ...form, minCharge: parseFloat(e.target.value) || undefined })}
+              />
+            </Field>
+          )}
           {form.pricing === 'fixed' && kind === 'product' && (
             <Field label="Stock on hand">
               <input

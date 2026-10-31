@@ -19,13 +19,14 @@ export function makeLine(
     const w = opts.width ?? 0;
     const h = opts.height ?? 0;
     const area = Math.max(0, w * h);
+    const min = product.minCharge;
     return {
       id: nextLineId(),
       productId: product.id,
       name: product.name,
-      unitPrice: area * product.price,
+      unitPrice: area > 0 ? Math.max(area * product.price, min ?? 0) : 0,
       qty: 1,
-      area: { width: w, height: h, unit: product.areaUnit ?? 'sq', rate: product.price },
+      area: { width: w, height: h, unit: product.areaUnit ?? 'sq', rate: product.price, ...(min ? { min } : {}) },
       handlerId: opts.handlerId,
     };
   }

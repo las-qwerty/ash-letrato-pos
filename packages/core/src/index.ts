@@ -12,4 +12,5 @@ export * from './consumption';
 export * from './membership';
 export * from './staff';
 export * from './catalog';
+export * from './catalog-set-2';
 export * as seed from './seed';

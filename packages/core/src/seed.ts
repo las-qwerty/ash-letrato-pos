@@ -17,6 +17,10 @@ import type {
   User,
   StaffReward,
 } from './types';
+import { catalogCategories, catalogMaterials, catalogProducts } from './catalog';
+import { mergeCatalogSet2 } from './catalog-set-2';
+
+const starter = mergeCatalogSet2({ categories: catalogCategories, materials: catalogMaterials, products: catalogProducts });
 
 export const branches: Branch[] = [
   { id: 'br-greenhills', name: 'Main — Greenhills', address: 'Unit 20 Maranaw Plaza, Greenhills East, Mandaluyong', isActive: true },
@@ -67,7 +71,9 @@ export const users: User[] = [
   },
 ];
 
-export { catalogCategories as categories, catalogMaterials as materials, catalogProducts as products } from './catalog';
+export const categories: Category[] = starter.categories;
+export const materials: Material[] = starter.materials;
+export const products: Product[] = starter.products;
 
 
 

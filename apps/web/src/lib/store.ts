@@ -6,6 +6,7 @@ import { checkPin, hashPin } from './pin';
 import {
   computePayslip,
   materializeStock,
+  mergeCatalogSet2,
   moveStock,
   seed,
   tierForSpend,
@@ -930,7 +931,7 @@ export const useStore = create<DataState>()(
         const s = get();
         return {
           app: 'ash-letrato-pos',
-          version: 3,
+          version: 4,
           exportedAt: new Date().toISOString(),
           data: {
             users: s.users,
@@ -984,7 +985,7 @@ export const useStore = create<DataState>()(
             ...p,
             kind: p.kind ?? (p.sku?.startsWith('SRV-') ? 'service' : 'product'),
           }));
-          const up = upgradeCollections({
+          const up0 = upgradeCollections({
             users,
             materials: d.materials as Material[],
             products,
@@ -992,6 +993,16 @@ export const useStore = create<DataState>()(
             categories: d.categories as Category[],
             sales: d.sales as Sale[],
           });
+          const up = ((raw as { version?: number }).version ?? 0) < 4
+            ? {
+                ...up0,
+                ...mergeCatalogSet2({
+                  categories: up0.categories ?? (d.categories as Category[]),
+                  materials: up0.materials,
+                  products: up0.products,
+                }),
+              }
+            : up0;
           extra.employeeProfiles = up.employeeProfiles;
           const cur = get().currentUser;
           set({
@@ -1019,7 +1030,7 @@ export const useStore = create<DataState>()(
     }),
     {
       name: 'simmy-pos',
-      version: 5,
+      version: 6,
       // v1 → v2: rebrand + product/service split. Normalize old installs so
       // stored staff emails and untyped products keep working without a reset.
       // v2 → v3: branch-attributed sales + enterprise entities (ledger, HR).
@@ -1088,6 +1099,16 @@ export const useStore = create<DataState>()(
           if (up.categories) s.categories = up.categories;
           s.sales = up.sales;
           s.staffRewards = s.staffRewards ?? [];
+        }
+        if (version < 6 && s && Array.isArray(s.categories) && Array.isArray(s.materials) && Array.isArray(s.products)) {
+          const merged = mergeCatalogSet2({
+            categories: s.categories as Category[],
+            materials: s.materials as Material[],
+            products: s.products as Product[],
+          });
+          s.categories = merged.categories;
+          s.materials = merged.materials;
+          s.products = merged.products;
         }
         return s;
       },

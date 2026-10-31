@@ -34,7 +34,7 @@ const LineItem = memo(function LineItem({ line }: { line: CartLine }) {
           <p className="truncate text-sm font-medium">{line.name}</p>
           <p className="mt-0.5 text-xs text-stone-500">
             {line.area
-              ? `${line.area.width}×${line.area.height} ${line.area.unit} @ ${peso(line.area.rate)}`
+              ? `${line.area.width}×${line.area.height} ${line.area.unit} @ ${peso(line.area.rate)}${line.area.min && line.unitPrice > line.area.width * line.area.height * line.area.rate ? ` · minimum ${peso(line.area.min)} applied` : ''}`
               : line.paper
                 ? `${line.qty} × ${peso(line.unitPrice)} · ${paperSheets(line.paper.pages, line.paper.copies, line.paper.sides)} sheets`
                 : peso(line.unitPrice)}

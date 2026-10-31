@@ -53,6 +53,7 @@ export interface Product {
   pricing: PricingKind;
   /** For area-priced items: the unit label, e.g. "sq ft". */
   areaUnit?: string;
+  minCharge?: number;
   /** Materials consumed per unit sold — deducted from inventory on checkout. */
   consumes: { materialId: string; qty: number }[];
   stockQty?: number;
@@ -123,7 +124,7 @@ export interface CartLine {
   unitPrice: number;
   qty: number;
   /** For area-priced lines. */
-  area?: { width: number; height: number; unit: string; rate: number };
+  area?: { width: number; height: number; unit: string; rate: number; min?: number };
   /** Staff member who produces/serves the line. */
   handlerId?: string;
   discountPct?: number;
