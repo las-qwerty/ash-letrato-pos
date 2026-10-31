@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { clampPct, inRange, nonNeg } from '@simmy/core';
 import { Field, PageHeader } from '@/components/ui';
+import { PrinterPanel } from '@/components/printer-panel';
 import { checkForUpdate, getOtaStatus } from '@/lib/ota';
 import { useStore } from '@/lib/store';
 import clsx from 'clsx';
@@ -11,6 +12,7 @@ import clsx from 'clsx';
 const tabs = [
   { id: 'store', label: 'Store' },
   { id: 'receipt', label: 'Receipt' },
+  { id: 'printer', label: 'Printer' },
   { id: 'loyalty', label: 'Loyalty' },
   { id: 'security', label: 'Security' },
   { id: 'data', label: 'Data' },
@@ -190,6 +192,8 @@ export default function SettingsPage() {
             </p>
           </div>
         )}
+
+        {tab === 'printer' && <PrinterPanel />}
 
         {tab === 'loyalty' && (
           <div className="card space-y-4 p-5">

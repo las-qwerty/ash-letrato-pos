@@ -71,7 +71,7 @@ export function PaymentModal({
 
   // Every printed copy is logged with the staff member who printed it, and the
   // receipt shows that name. Reprints from the Transactions page use the same path.
-  const printCopy = (sale: Sale) => {
+  const printCopy = (sale: Sale, drawer = false) => {
     const entry: PrintEntry = {
       byId: currentUser?.id,
       byName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '—',
@@ -80,7 +80,7 @@ export function PaymentModal({
     const updated: Sale = { ...sale, printLog: [...(sale.printLog ?? []), entry] };
     recordPrint(sale.id, entry);
     setDone(updated);
-    void printReceipt(updated, settings, branches.find((b) => b.id === updated.branchId));
+    void printReceipt(updated, settings, branches.find((b) => b.id === updated.branchId), { drawer });
   };
 
   const tendered =
@@ -180,7 +180,7 @@ export function PaymentModal({
       };
       recordSale(sale, cart.discount.promoId);
       setDone(sale);
-      setTimeout(() => printCopy(sale), 250);
+      setTimeout(() => printCopy(sale, true), 250);
     } catch {
       setPayError('Could not save the sale — please try again.');
     }

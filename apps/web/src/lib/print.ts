@@ -2,6 +2,8 @@ import { Capacitor } from '@capacitor/core';
 import { AppLauncher } from '@capacitor/app-launcher';
 import type { Branch, Sale, StoreSettings } from '@simmy/core';
 import { buildReceiptEscPos } from './escpos';
+import { drawerFor, loadPrinter } from './printer-config';
+import { nativePrinterReady, ThermalPrinter } from './thermal';
 import { toast } from './toast';
 
 const CLONE_CLS = 'print-clone';
@@ -51,18 +53,36 @@ function toBase64(bytes: Uint8Array): string {
 }
 
 /**
- * On Android builds, hand the receipt to RawBT as raw ESC/POS — the paired
- * thermal printer prints it silently, no browser print dialog. Detects a
- * missing RawBT install and warns instead of failing silently. Falls back
- * to window.print() everywhere else (web, iOS).
+ * Native printing sends ESC/POS straight to the printer (Bluetooth or network
+ * on Android, network on iPad). The drawer pulse rides in the same job when
+ * the sale is cash. Builds without the native printer fall back to RawBT on
+ * Android, and everything else uses window.print().
  */
 export async function printReceipt(
   sale: Sale,
   settings: StoreSettings,
   branch?: Branch,
+  opts: { drawer?: boolean } = {},
 ): Promise<void> {
-  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-    const url = `rawbt:base64,${toBase64(buildReceiptEscPos(sale, settings, branch))}`;
+  const cfg = loadPrinter();
+  const drawer = drawerFor(cfg, sale.paymentMethod, !!opts.drawer);
+  const bytes = buildReceiptEscPos(sale, settings, branch, { drawer });
+  if (await nativePrinterReady()) {
+    if (cfg.btAddress || cfg.host) {
+      try {
+        await sendToPrinter(bytes);
+      } catch (e) {
+        toast(e instanceof Error ? e.message : 'Printing failed.');
+      }
+      return;
+    }
+    if (Capacitor.getPlatform() === 'android') {
+      toast('Choose a printer in Settings → Printer first.');
+      return;
+    }
+  }
+  if (Capacitor.getPlatform() === 'android') {
+    const url = `rawbt:base64,${toBase64(bytes)}`;
     try {
       const { value } = await AppLauncher.canOpenUrl({ url });
       if (value) {
@@ -79,4 +99,11 @@ export async function printReceipt(
     }
   }
   window.print();
+}
+
+export async function sendToPrinter(bytes: Uint8Array): Promise<void> {
+  if (!(await nativePrinterReady())) throw new Error('Direct printing needs the latest ASH LETRATO app (Android or iPad).');
+  const cfg = loadPrinter();
+  if (!cfg.btAddress && !cfg.host) throw new Error('Choose a printer in Settings → Printer first.');
+  await ThermalPrinter.printData({ data: toBase64(bytes), address: cfg.btAddress, host: cfg.host, port: cfg.port });
 }

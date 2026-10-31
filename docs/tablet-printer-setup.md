@@ -1,76 +1,87 @@
-# Galaxy Tab S6 Lite + BT-80UB Thermal Printer Setup
+# Receipt printing and cash drawer setup
 
-Runs ASH LETRATO POS on a Samsung Galaxy Tab S6 Lite and prints receipts to the
-BT-80UB thermal printer (80 mm, ESC/POS, USB / Bluetooth / Ethernet) — silently,
-straight from the app, no print dialog.
-
----
-
-## Part 1 — Install the POS app on the tablet
-
-1. On the tablet, open Chrome and go to `ash-letrato-pos.vercel.app` →
-   **Download APK**, or directly:
-   `https://github.com/las-qwerty/ash-letrato-pos/releases/download/android-latest/ASH-LETRATO-POS.apk`
-2. Tap the downloaded `ASH-LETRATO-POS.apk` and allow **Install unknown apps →
-   Chrome** when prompted.
-3. Open **ASH LETRATO POS** and sign in (`admin@ashletrato.com` / `letrato123`
-   for demo).
-4. The app self-updates over the air — no reinstall needed for future updates.
+ASH LETRATO POS prints receipts straight to the printer and can open the cash
+drawer. The Android tablet no longer needs the RawBT app. The iPad prints to a
+Wi-Fi or Ethernet printer.
 
 ---
 
-## Part 2 — Connect the BT-80UB printer
+## Before you update
 
-1. Plug in the printer's **DC 24 V** power adapter and switch it on.
-2. Load an **80 mm** thermal paper roll (print side facing the head — the coated
-   side darkens when scratched with a fingernail).
-3. On the tablet: **Settings → Connections → Bluetooth → ON**.
-4. In the Bluetooth scan list, tap the printer (usually named `BT-80UB`,
-   `Printer-XXXX`, or `BlueTooth Printer`). PIN if asked: `0000` or `1234`.
-5. Optional self-test: hold **FEED** while powering on — the printer prints its
-   config, including its Bluetooth name.
-
-> Alternative: **Ethernet** — plug the printer into the shop router, note its IP
-> (printed on the self-test), and select it by IP inside RawBT instead of
-> Bluetooth.
+1. Open **Settings → Data → Backup this device** and keep the file.
+2. Install the new Android APK over the old one. If Android says the app cannot be
+   installed over the existing one, uninstall **ASH LETRATO POS** first, install the
+   new APK, then open **Settings → Data → Restore from a backup** and choose your file.
 
 ---
 
-## Part 3 — Install and configure RawBT (the print bridge)
+## Android tablet with the BT-80UB
 
-The app sends receipts to **RawBT**, a free Android app that talks ESC/POS to
-the paired printer.
+1. **Install the new APK once.** In Chrome, open `ash-letrato-pos.vercel.app` and tap
+   **Download APK**, or use the `android-latest` release. Web updates after that arrive
+   automatically.
+2. **Pair the printer.** Tablet **Settings → Connections → Bluetooth**, then tap the
+   BT-80UB. Enter `0000` or `1234` if asked.
+3. **Choose it in the POS.** **Settings → Printer → Find paired printers**, then tap
+   the BT-80UB.
+4. **Match the paper.** **Settings → Receipt → 80 mm**.
+5. **Test it.** **Settings → Printer → Test print**. A test slip prints and the roll cuts.
 
-1. Play Store → install **RawBT** (package `ru.a402d.rawbtprinter`).
-2. Open RawBT → grant **Bluetooth / nearby devices** permissions.
-3. **Printer → Select printer → Bluetooth → choose BT-80UB** (or enter its IP
-   for Ethernet).
-4. Set **paper width = 80 mm** — must match Settings → Receipt → 80 mm in the POS.
-5. For hands-free printing, in RawBT settings enable:
-   - **Print automatically** / don't show preview when receiving jobs
-   - **Return to the calling app** after printing (auto-close)
-6. Tap **Print test page** — a successful test confirms the link works.
+The first print asks for the **Nearby devices** permission. Tap **Allow**.
+
+The printer must support Bluetooth Classic (SPP). A printer that only supports
+Bluetooth LE will not connect.
 
 ---
 
-## Part 4 — Print a receipt
+## Cash drawer
 
-That's it — no steps needed per sale:
+- Plug the drawer cable into the drawer port on the back of the printer, not the
+  USB or power port.
+- **Settings → Printer → Cash drawer** sets when it opens:
+  - **Open for cash sales** (default): opens with the receipt of each cash sale.
+  - **Open for every sale**: also opens for card and GCash sales.
+  - **Never open**.
+- Reprints from Transactions never open the drawer.
+- **Open drawer** tests the drawer without printing anything.
 
-1. Ring up a sale in the POS and complete payment.
-2. The app automatically sends the receipt to RawBT → the BT-80UB prints
-   immediately. Product names print bold, totals print double-size, the roll
-   feeds and cuts.
-3. Manual reprints work too: **Transactions → pick a sale → Print**, or the
-   **Print receipt** button right after a sale.
+---
 
-Notes:
+## iPad
 
-- **Paper size**: keep **Settings → Receipt → 80 mm** matching the printer and
-  the RawBT paper-width setting.
-- **RawBT not installed?** The print button quietly does nothing — install it
-  (Part 3) and reprint.
-- **Faint print?** Raise **density/darkness** in RawBT and lower print speed;
-  clean the thermal head with isopropyl alcohol if it's still faint.
-- **Barcode labels** still print through the browser print path — use the web
-  version in Chrome for those, or ask for ESC/POS label printing to be added.
+iOS does not let apps print to ordinary Bluetooth printers, and the BT-80UB is listed
+with USB and Bluetooth only. Use a thermal printer with **Wi-Fi or Ethernet**, ESC/POS
+support, and a drawer port.
+
+1. Connect the printer to the same Wi-Fi as the iPad, or plug it into the router.
+2. Print the printer's network self-test (see its manual) to read its IP address.
+3. In the POS, go to **Settings → Printer → Network printer**, enter the IP address,
+   and leave the port at `9100`.
+4. When iOS asks, allow **Local Network** access for ASH LETRATO POS.
+5. Press **Test print**.
+
+Until a network printer is set, receipts use the normal print sheet.
+
+The iPad app is installed from the `ios-latest` build with Sideloadly. A free Apple ID
+expires about every 7 days, so re-sign the app when it stops opening.
+
+---
+
+## When something goes wrong
+
+- **Choose a printer in Settings → Printer**: no printer is selected yet.
+- **Could not reach the printer**: check that it is switched on, on the same Wi-Fi,
+  and that the IP address is correct.
+- **Could not connect to the Bluetooth printer**: pair it again in Android Settings,
+  and disconnect it from any other device.
+- **The drawer does not open**: check that the cable is in the drawer port and that the
+  drawer setting is not **Never open**.
+- **Faint print**: raise the density in the printer's own settings, or clean the thermal
+  head with isopropyl alcohol.
+
+---
+
+## Windows desktop
+
+Receipts go to the Windows default printer as before. Cash drawer control is not
+connected on the desktop yet.

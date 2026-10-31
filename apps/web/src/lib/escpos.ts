@@ -10,6 +10,8 @@ const BOLD_OFF = [0x1b, 0x45, 0x00];
 const DOUBLE = [0x1d, 0x21, 0x11]; // 2x width + height
 const NORMAL_SIZE = [0x1d, 0x21, 0x00];
 const FEED_CUT = [0x1b, 0x64, 0x08, 0x1d, 0x56, 0x42, 0x00]; // feed 8, partial cut
+const DRAWER_PULSE = [0x1b, 0x70, 0x00, 0x19, 0xfa];
+const textBytes = (s: string) => Array.from(s, (c) => c.charCodeAt(0));
 
 /** Pad/truncate a left/right pair to exactly `w` columns. */
 function row(left: string, right: string, w: number): string {
@@ -33,14 +35,16 @@ function wrap(s: string, w: number): string[] {
 }
 
 /**
- * Build the raw ESC/POS byte stream for a sale receipt. Sent to the printer
- * via RawBT (rawbt:base64 intent) — native text printing, so it is sharp,
+ * Build the raw ESC/POS byte stream for a sale receipt. Sent straight to the
+ * printer over Bluetooth or the network, or via RawBT on builds without the
+ * native printer — native text printing, so it is sharp,
  * instant, and prints the full length regardless of viewport.
  */
 export function buildReceiptEscPos(
   sale: Sale,
   settings: StoreSettings,
   branch?: Branch,
+  opts: { drawer?: boolean } = {},
 ): Uint8Array {
   const mm = settings.receiptWidthMm ?? 80;
   const w = colsFor(mm);
@@ -70,5 +74,30 @@ export function buildReceiptEscPos(
   }
 
   out.push(0x0a, 0x0a, ...FEED_CUT);
+  if (opts.drawer) out.push(...DRAWER_PULSE);
   return new Uint8Array(out);
+}
+
+export function buildDrawerEscPos(): Uint8Array {
+  return new Uint8Array([...INIT, ...DRAWER_PULSE]);
+}
+
+export function buildTestEscPos(drawer: boolean): Uint8Array {
+  return new Uint8Array([
+    ...INIT,
+    ...ALIGN_CENTER,
+    ...BOLD_ON,
+    ...DOUBLE,
+    ...textBytes('PRINTER TEST'),
+    0x0a,
+    ...NORMAL_SIZE,
+    ...BOLD_OFF,
+    ...textBytes('ASH LETRATO POS'),
+    0x0a,
+    ...textBytes('If this prints, the connection works.'),
+    0x0a,
+    0x0a,
+    ...FEED_CUT,
+    ...(drawer ? DRAWER_PULSE : []),
+  ]);
 }

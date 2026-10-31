@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import Network
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -40,5 +41,82 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                                           sessionRole: connectingSceneSession.role)
         config.delegateClass = SceneDelegate.self
         return config
+    }
+}
+
+class MainViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        bridge?.registerPluginInstance(ThermalPrinterPlugin())
+    }
+}
+
+public class ThermalPrinterPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "ThermalPrinterPlugin"
+    public let jsName = "ThermalPrinter"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "ping", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listPaired", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "printData", returnType: CAPPluginReturnPromise)
+    ]
+
+    @objc func ping(_ call: CAPPluginCall) {
+        call.resolve(["ok": true])
+    }
+
+    @objc func listPaired(_ call: CAPPluginCall) {
+        call.reject("iPad cannot use Bluetooth printers. Choose a Wi-Fi or Ethernet printer in Settings > Printer.")
+    }
+
+    @objc func printData(_ call: CAPPluginCall) {
+        guard let encoded = call.getString("data"), let bytes = Data(base64Encoded: encoded) else {
+            call.reject("Nothing to print.")
+            return
+        }
+        guard let host = call.getString("host"), !host.isEmpty else {
+            call.reject("iPad cannot use Bluetooth printers. Choose a Wi-Fi or Ethernet printer in Settings > Printer.")
+            return
+        }
+        let port = UInt16(clamping: call.getInt("port") ?? 9100)
+        ThermalPrinterPlugin.send(bytes, host: host, port: port) { error in
+            if let error = error {
+                call.reject(error)
+            } else {
+                call.resolve()
+            }
+        }
+    }
+
+    private static func send(_ bytes: Data, host: String, port: UInt16, completion: @escaping (String?) -> Void) {
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else {
+            completion("Invalid printer port.")
+            return
+        }
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
+        var finished = false
+        let finish: (String?) -> Void = { error in
+            DispatchQueue.main.async {
+                guard !finished else { return }
+                finished = true
+                connection.cancel()
+                completion(error)
+            }
+        }
+        let unreachable = "Could not reach the printer at \(host):\(port). Check it is switched on and on the same Wi-Fi. If asked, allow Local Network access for ASH LETRATO POS."
+        connection.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                connection.send(content: bytes, completion: .contentProcessed({ error in
+                    finish(error == nil ? nil : "The printer stopped accepting data. Try again.")
+                }))
+            case .failed, .waiting:
+                finish(unreachable)
+            default:
+                break
+            }
+        }
+        connection.start(queue: .global())
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+            finish("The printer at \(host):\(port) did not respond in time.")
+        }
     }
 }

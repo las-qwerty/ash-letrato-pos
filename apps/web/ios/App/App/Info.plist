@@ -8,6 +8,8 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
         <string>ASH LETRATO POS</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>ASH LETRATO POS sends receipts and cash-drawer commands to your network printer.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>The camera is used to scan product barcodes at the register.</string>
 	<key>CFBundleExecutable</key>
