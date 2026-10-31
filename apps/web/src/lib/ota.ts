@@ -12,6 +12,7 @@ const STATUS_KEY = 'ota-status';
 interface OtaManifest {
   version: string;
   url: string;
+  checksum?: string;
 }
 
 export interface OtaStatus {
@@ -46,7 +47,7 @@ export async function checkForUpdate(): Promise<string> {
       setStatus(`manifest unreachable (HTTP ${res.status})`);
       return 'error';
     }
-    const { version, url } = (await res.json()) as OtaManifest;
+    const { version, url, checksum } = (await res.json()) as OtaManifest;
     if (!version || !url) {
       setStatus('manifest malformed');
       return 'error';
@@ -55,9 +56,13 @@ export async function checkForUpdate(): Promise<string> {
       setStatus(`up to date (${version})`);
       return 'up-to-date';
     }
+    if (!checksum) {
+      setStatus(`manifest for ${version} has no checksum`);
+      return 'error';
+    }
 
     setStatus(`downloading ${version}…`);
-    const bundle = await CapacitorUpdater.download({ url, version });
+    const bundle = await CapacitorUpdater.download({ url, version, checksum });
     localStorage.setItem(VERSION_KEY, version);
     setStatus(`update ${version} installed — reloading`);
     toast('Update installed — reloading…');

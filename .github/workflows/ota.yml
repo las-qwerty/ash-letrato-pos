@@ -33,8 +33,9 @@ jobs:
           cd apps/web/out
           zip -qr "$GITHUB_WORKSPACE/app-bundle.zip" .
           VERSION="$(date -u +%Y%m%d%H%M)-${GITHUB_SHA::7}"
-          printf '{"version":"%s","url":"https://raw.githubusercontent.com/%s/ota/app-bundle.zip"}' \
-            "$VERSION" "$GITHUB_REPOSITORY" > "$GITHUB_WORKSPACE/app-version.json"
+          CHECKSUM="$(sha256sum "$GITHUB_WORKSPACE/app-bundle.zip" | cut -d' ' -f1)"
+          printf '{"version":"%s","url":"https://raw.githubusercontent.com/%s/ota/app-bundle.zip?v=%s","checksum":"%s"}' \
+            "$VERSION" "$GITHUB_REPOSITORY" "$VERSION" "$CHECKSUM" > "$GITHUB_WORKSPACE/app-version.json"
           echo "version=$VERSION" >> "$GITHUB_ENV"
 
       # Publishes to a dedicated `ota` branch instead of release assets —

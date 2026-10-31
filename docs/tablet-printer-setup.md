@@ -8,9 +8,11 @@ Wi-Fi or Ethernet printer.
 
 ## Before you update the tablet
 
-Version 1.3 fixes the cash drawer and needs a new APK. Every Android build is signed with a
-new key, so Android will not install it over the app already on the tablet. Uninstalling
-deletes the app's data, so back it up first:
+Version 1.4 includes the cash drawer fix (1.3) and the fix for App updates, which failed with
+"Failed to download from". The updater code runs inside the app, so the app already on the
+tablet cannot repair itself; it needs this new APK. Every Android build is signed with a new
+key, so Android will not install it over the app already on the tablet. Uninstalling deletes
+the app's data, so back it up first:
 
 1. In the current app, go to **Settings → Data → App updates** and tap **Check for updates
    now**. Wait for the app to reload. This adds the copy-backup button. **If that button does not
@@ -75,6 +77,10 @@ Ethernet**, ESC/POS support, and a drawer port.
 5. Press **Test print**.
 
 Until a network printer is set, receipts use the normal print sheet.
+
+Version 1.4 also fixes App updates on the iPad. Back up first (Settings → Data → Copy backup
+text), then install the new `ios-latest` IPA once with Sideloadly. The updater runs inside the
+app, so the copy installed today cannot repair itself.
 
 The iPad app is installed from the `ios-latest` build with Sideloadly. A free Apple ID
 expires about every 7 days, so re-sign the app when it stops opening.
