@@ -13,7 +13,9 @@ will not install it over the old app. Uninstalling deletes the app's data, so ba
 first:
 
 1. In the current app, go to **Settings → Data → App updates** and tap **Check for updates
-   now**. Wait for the app to reload. This adds the copy-backup button.
+   now**. Wait for the app to reload. This adds the copy-backup button. **If that button does not
+   appear on Settings → Data, stop here and do not uninstall.** Without it there is no
+   way to back up the data on the tablet.
 2. Go to **Settings → Data** and tap **Copy backup text**. Save the text in a private note.
    It contains all of the shop's data, so do not share it. (The file export is desktop-only,
    because the tablet cannot save downloaded files.)
