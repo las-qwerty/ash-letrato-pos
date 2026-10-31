@@ -5,6 +5,7 @@ import { fmtDate, fmtTime, peso, type Sale } from '@simmy/core';
 import { Badge, EmptyState, PageHeader, Stat } from '@/components/ui';
 import { IconChart, IconDownload, IconSearch, IconShield } from '@/components/icons';
 import { Pagination } from '@/components/pagination';
+import { BranchBarChart, PaymentDonut, PeriodBarChart } from '@/components/charts';
 import { downloadXlsx } from '@/lib/excel';
 import { usePager } from '@/lib/use-pager';
 import { useBranchScope, useStore } from '@/lib/store';
@@ -81,39 +82,33 @@ export default function ReportsPage() {
   const delta = prevRevenue > 0 ? (revenue - prevRevenue) / prevRevenue : null;
 
   // Sales buckets: daily (≤ 62 days) or monthly — keyed on local dates.
-  const buckets = useMemo(() => {
-    const localDay = (d: Date) =>
+  const { buckets, unit } = useMemo(() => {
+    const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const days = Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
-    const out: { label: string; key: string; total: number }[] = [];
-    if (days <= 62) {
-      for (let i = 0; i < days; i++) {
-        const d = new Date(from.getTime() + i * 86400000);
-        const key = localDay(d);
-        out.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, key, total: 0 });
-      }
-      const map = new Map(out.map((b) => [b.key, b]));
-      for (const s of completed) {
-        const b = map.get(localDay(new Date(s.createdAt)));
-        if (b) b.total += s.total;
+    const span = Math.round((dayStart(to).getTime() - dayStart(from).getTime()) / 86400000) + 1;
+    const daily = span <= 62;
+    const keyOf = (d: Date) => (daily ? dayKey(d) : dayKey(d).slice(0, 7));
+    const out: { label: string; key: string; total: number; count: number }[] = [];
+    if (daily) {
+      for (let i = 0; i < span; i++) {
+        const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i);
+        out.push({ label: d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }), key: dayKey(d), total: 0, count: 0 });
       }
     } else {
-      const seen = new Map<string, { label: string; key: string; total: number }>();
-      for (const s of completed) {
-        const d = new Date(s.createdAt);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        if (!seen.has(key)) {
-          seen.set(key, {
-            key,
-            label: d.toLocaleString('en', { month: 'short', year: '2-digit' }),
-            total: 0,
-          });
-        }
-        seen.get(key)!.total += s.total;
+      for (let d = new Date(from.getFullYear(), from.getMonth(), 1); d <= to; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+        out.push({ label: d.toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }), key: dayKey(d).slice(0, 7), total: 0, count: 0 });
       }
-      out.push(...[...seen.values()].sort((a, b) => a.key.localeCompare(b.key)));
     }
-    return out;
+    const map = new Map(out.map((b) => [b.key, b]));
+    for (const s of completed) {
+      const b = map.get(keyOf(new Date(s.createdAt)));
+      if (b) {
+        b.total += s.total;
+        b.count += 1;
+      }
+    }
+    return { buckets: out, unit: daily ? 'day' : 'month' };
   }, [completed, from, to]);
 
   const byPayment = useMemo(() => {
@@ -121,7 +116,7 @@ export default function ReportsPage() {
     for (const s of completed) m.set(s.paymentMethod, (m.get(s.paymentMethod) ?? 0) + s.total);
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [completed]);
-  const maxPay = Math.max(...byPayment.map(([, v]) => v), 1);
+  const payData = byPayment.map(([name, value]) => ({ name, value }));
 
   const byBranch = useMemo(() => {
     const m = new Map<string, number>();
@@ -131,7 +126,6 @@ export default function ReportsPage() {
       .filter((b) => b.total > 0 || branchId === 'all')
       .sort((a, b) => b.total - a.total);
   }, [completed, branches, branchId]);
-  const maxBranch = Math.max(...byBranch.map((b) => b.total), 1);
 
   const topItems = useMemo(() => {
     const m = new Map<string, { name: string; qty: number; total: number }>();
@@ -280,8 +274,8 @@ export default function ReportsPage() {
       {/* Sales over period */}
       <div className="card mt-4 p-5">
         <h2 className="mb-4 font-display text-lg font-medium">Sales over period</h2>
-        {buckets.length > 0 ? (
-          <PeriodChart buckets={buckets} />
+        {completed.length > 0 ? (
+          <PeriodBarChart data={buckets} unit={unit} />
         ) : (
           <EmptyState icon={<IconChart width={36} height={36} />} title="No sales in range" hint="Widen the date range or clear filters." />
         )}
@@ -290,38 +284,20 @@ export default function ReportsPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="card p-5">
           <h2 className="mb-4 font-display text-lg font-medium">By payment method</h2>
-          <div className="space-y-3">
-            {byPayment.map(([method, total]) => (
-              <div key={method}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span className="font-medium uppercase">{method}</span>
-                  <span className="tabular-nums text-stone-500">{peso(total)}</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-stone-100">
-                  <div className="h-full rounded-full bg-pine-600" style={{ width: `${(total / maxPay) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-            {byPayment.length === 0 && <p className="text-sm text-stone-400">No sales in range.</p>}
-          </div>
+          {payData.length > 0 ? (
+            <PaymentDonut data={payData} active={payFilter} onPick={(m) => setPayFilter((p) => (p === m ? 'all' : m))} />
+          ) : (
+            <p className="text-sm text-stone-400">No sales in range.</p>
+          )}
         </div>
 
         <div className="card p-5">
           <h2 className="mb-4 font-display text-lg font-medium">By branch</h2>
-          <div className="space-y-3">
-            {byBranch.map((b) => (
-              <div key={b.name}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span className="font-medium">{b.name}</span>
-                  <span className="tabular-nums text-stone-500">{peso(b.total)}</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-stone-100">
-                  <div className="h-full rounded-full bg-brass-500" style={{ width: `${(b.total / maxBranch) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-            {byBranch.length === 0 && <p className="text-sm text-stone-400">No branch sales in range.</p>}
-          </div>
+          {byBranch.length > 0 ? (
+            <BranchBarChart data={byBranch} />
+          ) : (
+            <p className="text-sm text-stone-400">No branch sales in range.</p>
+          )}
         </div>
 
         <div className="card p-5">
@@ -447,36 +423,3 @@ function AuditTrail() {
   );
 }
 
-/** Bar chart of per-bucket sales with native tooltips. */
-function PeriodChart({ buckets }: { buckets: { label: string; total: number }[] }) {
-  const max = Math.max(...buckets.map((b) => b.total), 1);
-  const dense = buckets.length > 24;
-  return (
-    <div>
-      <div className="flex h-44 items-end gap-[3px]">
-        {buckets.map((b) => (
-          <div key={b.label + b.total} className="group flex min-w-0 flex-1 flex-col items-center gap-1">
-            <span className="text-[9px] tabular-nums text-stone-400 opacity-0 transition group-hover:opacity-100">
-              {b.total > 0 ? peso(b.total) : ''}
-            </span>
-            <div
-              className={clsx(
-                'w-full rounded-t transition',
-                b.total > 0 ? 'bg-pine-600/85 group-hover:bg-pine-700' : 'bg-stone-100',
-              )}
-              style={{ height: `${Math.max(b.total > 0 ? 4 : 2, (b.total / max) * 100)}%` }}
-              title={`${b.label}: ${peso(b.total)}`}
-            />
-            {!dense && <span className="text-[9px] text-stone-400">{b.label}</span>}
-          </div>
-        ))}
-      </div>
-      {dense && (
-        <div className="mt-1 flex justify-between text-[9px] text-stone-400">
-          <span>{buckets[0]?.label}</span>
-          <span>{buckets[buckets.length - 1]?.label}</span>
-        </div>
-      )}
-    </div>
-  );
-}

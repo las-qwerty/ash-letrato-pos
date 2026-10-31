@@ -1,91 +1,32 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { fmtTime, peso, stockAt, type Sale } from '@simmy/core';
 import { Badge, PageHeader, Stat } from '@/components/ui';
 import { IconAlert } from '@/components/icons';
+import { SalesTrendChart, type TrendPoint } from '@/components/charts';
 import { useBranchScope, useStore } from '@/lib/store';
 
-function last7Days(sales: Sale[]) {
-  const days: { label: string; total: number }[] = [];
-  for (let i = 6; i >= 0; i--) {
+function last7Days(sales: Sale[]): TrendPoint[] {
+  const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - i);
+    d.setDate(d.getDate() - (6 - i));
     const key = d.toDateString();
-    days.push({
+    const day = sales.filter((s) => s.status === 'completed' && new Date(s.createdAt).toDateString() === key);
+    return {
       label: d.toLocaleDateString('en-PH', { weekday: 'short' }),
-      total: sales
-        .filter((s) => s.status !== 'voided' && new Date(s.createdAt).toDateString() === key)
-        .reduce((a, s) => a + s.total, 0),
-    });
-  }
-  return days;
-}
-
-function SalesChart({ data }: { data: { label: string; total: number }[] }) {
-  // displayed values tween toward the latest data so the line animates on new sales
-  const [shown, setShown] = useState(data);
-  const rafRef = useRef<number>(0);
-
-  useEffect(() => {
-    const from = shown;
-    const to = data;
-    if (from.every((d, i) => d.total === to[i]?.total && d.label === to[i]?.label)) return;
-    const t0 = performance.now();
-    const dur = 600;
-    const tick = (now: number) => {
-      const k = Math.min(1, (now - t0) / dur);
-      const e = 1 - Math.pow(1 - k, 3); // easeOutCubic
-      setShown(
-        to.map((d, i) => ({
-          label: d.label,
-          total: (from[i]?.total ?? 0) + (d.total - (from[i]?.total ?? 0)) * e,
-        })),
-      );
-      if (k < 1) rafRef.current = requestAnimationFrame(tick);
+      date: d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
+      total: day.reduce((a, s) => a + s.total, 0),
+      count: day.length,
     };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
-
-  const max = Math.max(...shown.map((d) => d.total), 1);
-  const W = 560;
-  const H = 180;
-  const padX = 34; // keep edge dots + day labels inside the viewBox
-  const padTop = 10; // headroom so peaks never touch the top edge
-  const innerW = W - padX * 2;
-  const step = shown.length > 1 ? innerW / (shown.length - 1) : 0;
-  const pts = shown.map((d, i) => [
-    padX + i * step,
-    H - (d.total / max) * (H - padTop),
-  ] as const);
-  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ');
-  const x0 = pts[0]?.[0] ?? padX;
-  const xN = pts[pts.length - 1]?.[0] ?? W - padX;
-  const area = `${line} L${xN},${H} L${x0},${H} Z`;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H + 22}`} className="w-full" role="img" aria-label="Sales for the last 7 days">
-      <defs>
-        <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#DC2626" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#DC2626" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#salesFill)" />
-      <path d={line} fill="none" stroke="#DC2626" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map(([x, y], i) => (
-        <g key={i}>
-          <circle cx={x} cy={y} r={i === pts.length - 1 ? 4 : 3} fill="#DC2626" />
-          <text x={x} y={H + 16} textAnchor="middle" className="fill-stone-400 text-[10px]">
-            {data[i]?.label}
-          </text>
-        </g>
-      ))}
-    </svg>
-  );
+  });
+  return days.map((d, i) => {
+    const prev = days[i - 1]?.total ?? 0;
+    const note =
+      i === 0 || prev === 0 ? '' : `${d.total >= prev ? '+' : ''}${Math.round(((d.total - prev) / prev) * 100)}% vs previous day`;
+    return { ...d, note };
+  });
 }
 
 export default function DashboardPage() {
@@ -104,7 +45,7 @@ export default function DashboardPage() {
   );
 
   // re-derive time-based aggregates periodically so the chart stays live
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 15_000);
     return () => clearInterval(t);
@@ -113,7 +54,7 @@ export default function DashboardPage() {
   const { todaySales, revenue, lowStock, recent } = useMemo(() => {
     const today = new Date().toDateString();
     const todaySales = sales.filter(
-      (s) => new Date(s.createdAt).toDateString() === today && s.status !== 'voided',
+      (s) => new Date(s.createdAt).toDateString() === today && s.status === 'completed',
     );
     return {
       todaySales,
@@ -125,7 +66,9 @@ export default function DashboardPage() {
     };
   }, [sales, materials, scope, mainBranch]);
 
-  const trend = useMemo(() => last7Days(sales), [sales, tick]);
+  const dayKey = new Date().toDateString();
+  const trend = useMemo(() => last7Days(sales), [sales, dayKey]);
+  const best = trend.reduce((b, d) => (d.total > b.total ? d : b));
 
   const productCounts = useMemo(() => {
     const m = new Map<string, { qty: number; revenue: number }>();
@@ -173,11 +116,21 @@ export default function DashboardPage() {
                 Live
               </span>
             </h2>
-            <Link href="/reports" className="text-xs font-medium text-pine-700 hover:underline">
-              Full report →
-            </Link>
+            <div className="flex items-center gap-4">
+              {best.total > 0 && (
+                <span className="hidden text-xs text-stone-500 sm:inline">
+                  Best day <span className="font-medium text-ink">{best.label}</span> · {peso(best.total)}
+                </span>
+              )}
+              <Link href="/reports" className="text-xs font-medium text-pine-700 hover:underline">
+                Full report →
+              </Link>
+            </div>
           </div>
-          <SalesChart data={trend} />
+          <SalesTrendChart data={trend} />
+          {trend.every((d) => d.total === 0) && (
+            <p className="mt-2 text-center text-xs text-stone-400">No completed sales in the last 7 days yet.</p>
+          )}
         </div>
 
         <div className="card p-5">
