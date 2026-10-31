@@ -9,9 +9,11 @@ Wi-Fi or Ethernet printer.
 ## Before you update
 
 1. Open **Settings → Data → Backup this device** and keep the file.
-2. Install the new Android APK over the old one. If Android says the app cannot be
-   installed over the existing one, uninstall **ASH LETRATO POS** first, install the
-   new APK, then open **Settings → Data → Restore from a backup** and choose your file.
+2. Uninstall **ASH LETRATO POS** from the tablet before installing this update. The new
+   APK is signed with a different key than the one on the tablet, so Android will not
+   install it over the old app. Uninstalling removes the local data, so keep the backup.
+3. After the new APK is installed, open **Settings → Data → Restore from a backup** and
+   choose your file.
 
 ---
 
