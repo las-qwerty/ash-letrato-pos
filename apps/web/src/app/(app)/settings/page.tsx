@@ -6,6 +6,7 @@ import { clampPct, inRange, nonNeg } from '@simmy/core';
 import { Field, PageHeader } from '@/components/ui';
 import { PrinterPanel } from '@/components/printer-panel';
 import { checkForUpdate, getOtaStatus } from '@/lib/ota';
+import { packBackup, unpackBackup } from '@/lib/backup-text';
 import { useStore } from '@/lib/store';
 import clsx from 'clsx';
 
@@ -28,6 +29,8 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState(settings);
   const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [backupText, setBackupText] = useState<string | null>(null);
+  const [pasteText, setPasteText] = useState('');
 
   const set = <K extends keyof typeof draft>(k: K, v: (typeof draft)[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
@@ -85,6 +88,37 @@ export default function SettingsPage() {
     } else {
       setDraft(useStore.getState().settings);
       setImportMsg({ ok: true, text: 'Backup imported — this device now mirrors that data.' });
+    }
+  };
+
+  const copyBackup = async () => {
+    const text = await packBackup(JSON.stringify(useStore.getState().exportData()));
+    try {
+      await navigator.clipboard.writeText(text);
+      setBackupText(null);
+      setImportMsg({ ok: true, text: 'Backup copied. Paste it into a note or message and keep it before you update the app.' });
+    } catch {
+      setBackupText(text);
+      setImportMsg({ ok: false, text: 'The clipboard is blocked here. Tap the backup text below, select all, and copy it.' });
+    }
+  };
+
+  const restoreFromText = async (text: string) => {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(await unpackBackup(text));
+    } catch (e) {
+      setImportMsg({ ok: false, text: e instanceof Error ? e.message : 'That text is not a valid backup.' });
+      return;
+    }
+    if (!window.confirm('Replace ALL data on this device with the backup? Products, sales, staff, customers and settings will be overwritten. This cannot be undone.')) return;
+    const err = useStore.getState().importData(raw);
+    if (err) {
+      setImportMsg({ ok: false, text: err });
+    } else {
+      setDraft(useStore.getState().settings);
+      setPasteText('');
+      setImportMsg({ ok: true, text: 'Backup restored — this device now mirrors that data.' });
     }
   };
 
@@ -281,8 +315,45 @@ export default function SettingsPage() {
                 single file. Send it with the installer and the other device can load your exact
                 data — or keep it as a safety copy.
               </p>
-              <button type="button" className="btn-secondary mt-3 !py-1.5 text-xs" onClick={exportBackup}>
-                Export data (.json)
+              {!Capacitor.isNativePlatform() && (
+                <button type="button" className="btn-secondary mt-3 !py-1.5 text-xs" onClick={exportBackup}>
+                  Export data (.json)
+                </button>
+              )}
+              <button type="button" className="btn-primary mt-3 !py-1.5 text-xs" onClick={() => void copyBackup()}>
+                Copy backup text
+              </button>
+              {backupText !== null && (
+                <textarea
+                  readOnly
+                  className="input mt-3 h-24 font-mono text-[11px]"
+                  value={backupText}
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+              )}
+              <p className="mt-2 text-xs leading-relaxed text-stone-500">
+                On the tablet, this copies the whole backup as text. Keep it before you uninstall or update the app.
+              </p>
+            </div>
+
+            <div className="border-t border-stone-200 pt-4">
+              <p className="text-sm font-medium">Restore from pasted text</p>
+              <p className="mt-1 text-xs leading-relaxed text-stone-500">
+                Paste a backup copied with &quot;Copy backup text&quot;. This replaces everything on this device.
+              </p>
+              <textarea
+                className="input mt-3 h-24 font-mono text-[11px]"
+                placeholder="ASHBK1…"
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-secondary mt-3 !py-1.5 text-xs"
+                disabled={!pasteText.trim()}
+                onClick={() => void restoreFromText(pasteText)}
+              >
+                Restore from pasted text
               </button>
             </div>
 
