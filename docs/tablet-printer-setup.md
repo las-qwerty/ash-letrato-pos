@@ -51,9 +51,10 @@ Bluetooth LE will not connect.
 
 ## iPad
 
-iOS does not let apps print to ordinary Bluetooth printers, and the BT-80UB is listed
-with USB and Bluetooth only. Use a thermal printer with **Wi-Fi or Ethernet**, ESC/POS
-support, and a drawer port.
+iOS does not let third-party apps open Bluetooth Classic (SPP) printer connections unless
+the printer is Apple-certified (MFi). The BT-80UB's Bluetooth type has not been confirmed,
+and its listing shows USB and Bluetooth only. Use a thermal printer with **Wi-Fi or
+Ethernet**, ESC/POS support, and a drawer port.
 
 1. Connect the printer to the same Wi-Fi as the iPad, or plug it into the router.
 2. Print the printer's network self-test (see its manual) to read its IP address.
